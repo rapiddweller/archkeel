@@ -160,8 +160,12 @@ impl<'a> Facts<'a> {
             if bound {
                 holders.push(at);
             }
-            // A class body reads the outer name until it assigns its own.
-            if bound && scope.kind != Kind::Class {
+            // A class body that assigns the name reads the module, not a function local.
+            let class = bound && scope.kind == Kind::Class;
+            if class {
+                holders.extend([0].into_iter().filter(has));
+            }
+            if bound {
                 break;
             }
             up = scope.parent;

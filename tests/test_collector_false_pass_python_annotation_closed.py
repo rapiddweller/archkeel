@@ -473,6 +473,36 @@ SCOPES = {
             x: C.s
         """
     ),
+    "class in a function reads the module, not the function local": source(
+        """
+        s = str(PAYLOAD)
+
+
+        def make():
+            s = 'int'
+
+            class K:
+                x: s
+                s = 'int'
+
+            return K
+
+
+        K = make()
+        """
+    ),
+    "module name created through an alias despite a class binding": source(
+        """
+        import app.consumer as me
+
+        me.s = str(PAYLOAD)
+
+
+        class K:
+            s = 'int'
+            x: 's'
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

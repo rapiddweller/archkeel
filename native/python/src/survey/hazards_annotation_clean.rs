@@ -15,7 +15,7 @@ use ruff_python_ast::{
 use ruff_text_size::{Ranged, TextRange};
 
 use super::entity::{typing_style, Active, Entity, Project, MAX_BINDINGS, MAX_DEPTH};
-use super::facts::{Binding, ScopeId, TEXT};
+use super::facts::{Binding, Kind, ScopeId, TEXT};
 use super::forms::{items, keeps, literal, type_subscription, TYPE_FORMS};
 use crate::parse::Unread;
 
@@ -186,7 +186,8 @@ impl<'a> Project<'a> {
         }
         let holders = facts.holders(scope, id);
         // A write into the module through an alias of it (`me.s = v`) changes the bare name too.
-        let at_module = holders.is_empty() || holders.contains(&0);
+        let class = facts.scopes[scope & !TEXT].kind == Kind::Class;
+        let at_module = holders.is_empty() || holders.contains(&0) || class || scope & TEXT != 0;
         if at_module && self.written(&self.modules[m].name, id) {
             return Entity::Unknown;
         }
