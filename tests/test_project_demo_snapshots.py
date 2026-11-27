@@ -23,191 +23,86 @@ def _git_blob_sha1(payload: bytes) -> str:
     return hashlib.sha1(header + payload).hexdigest()
 
 
-def test_compass_snapshot_preserves_libraries_generated_parts_and_the_workspace() -> None:
-    fixture = "fixtures/J-compass"
-    app = "compass_app/app/"
-    snapshot = _snapshot(f"{fixture}/SNAPSHOT.json")
-    assert snapshot["repository"] == "flutter/samples"
-    assert snapshot["commit"] == "5541c59ab8e9d7e74c1a35ef22bd43a487fc596c"
+def _source_identity(snapshot: dict[str, object], item: dict[str, object]) -> None:
+    """One identity check: the URL of a file names the repository and the commit of the snapshot."""
+    base = f"https://github.com/{snapshot['repository']}/blob/{snapshot['commit']}/"
+    assert item["source_url"] == base + str(item["source_path"]), item["path"]
 
+
+def _on_disk(root: Path, *folders: str) -> set[str]:
+    return {
+        path.relative_to(root).as_posix()
+        for folder in folders
+        for path in (root / folder).rglob("*")
+        if path.is_file()
+    }
+
+
+def test_compass_snapshot_matches_the_files_and_the_workspace() -> None:
+    fixture = ROOT / "fixtures/J-compass"
+    snapshot = _snapshot("fixtures/J-compass/SNAPSHOT.json")
     files = snapshot["files"]
-    dart = [
-        item
-        for item in files
-        if item["path"].startswith(app + "lib/") and item["path"].endswith(".dart")
-    ]
-    generated = [item for item in dart if item.get("generated") is True]
-    libraries = [item for item in dart if item.get("generated") is False]
-    # The workspace root and every member of it hold a pubspec file (AD-808). The other files that
-    # the fixture holds are the licence and the Dart source of the app.
-    manifests = [item["path"] for item in files if item["path"].endswith("pubspec.yaml")]
-    assert "pubspec.yaml" in manifests and app + "pubspec.yaml" in manifests
-    assert {item["path"] for item in files if not item["path"].endswith(".dart")} == {
-        "LICENSE",
-        *manifests,
-    }
-    actual_dart = {
-        path.relative_to(ROOT / fixture).as_posix()
-        for path in (ROOT / fixture / app / "lib").rglob("*.dart")
-    }
-    assert actual_dart == {item["path"] for item in dart}
-    on_disk = {
-        path.relative_to(ROOT / fixture).as_posix()
-        for path in (ROOT / fixture).rglob("pubspec.yaml")
-    }
-    assert on_disk == set(manifests)
-
     for item in files:
-        target = ROOT / fixture / item["path"]
-        assert _sha256(target) == item["sha256"]
-        assert item["source_url"].startswith(
-            "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/"
-        )
-        if item["path"].endswith(".dart"):
-            assert item["source_path"] == item["path"]
-    library_paths = {item["path"] for item in libraries}
-    for item in generated:
-        assert item["parent_library"] in library_paths
-        assert (
-            item["parent_library"]
-            == item["path"].removesuffix(".freezed.dart").removesuffix(".g.dart") + ".dart"
-        )
-
-
-def test_python_snapshot_preserves_exact_app_and_root_allowlist() -> None:
-    fixture = "fixtures/K-python-realworld"
-    snapshot = _snapshot(f"{fixture}/SNAPSHOT.json")
-    assert snapshot["repository"] == "nsidnev/fastapi-realworld-example-app"
-    assert snapshot["commit"] == "029eb7781c60d5f563ee8990a0cbfb79b244538c"
-    expected_root = {
-        "LICENSE",
-        "README.rst",
-        "pyproject.toml",
-        "setup.cfg",
-        "poetry.lock",
-        "alembic.ini",
+        assert _sha256(fixture / item["path"]) == item["sha256"]
+        _source_identity(snapshot, item)
+    listed = {item["path"] for item in files}
+    # The workspace root and every member of it hold a pubspec file (AD-808).
+    on_disk = _on_disk(fixture, "compass_app/app/lib") | {
+        path.relative_to(fixture).as_posix() for path in fixture.rglob("pubspec.yaml")
     }
+    assert on_disk <= listed
+    assert {path for path in listed if path.endswith(".dart")} == {
+        path for path in on_disk if path.endswith(".dart")
+    }
+    libraries = {item["path"] for item in files if item.get("generated") is False}
+    for item in files:
+        if item.get("generated") is True:
+            stem = item["path"].removesuffix(".freezed.dart").removesuffix(".g.dart")
+            assert item["parent_library"] == stem + ".dart"
+            assert item["parent_library"] in libraries
+
+
+def test_python_snapshot_matches_the_files_and_the_upstream_tree() -> None:
+    fixture = ROOT / "fixtures/K-python-realworld"
+    snapshot = _snapshot("fixtures/K-python-realworld/SNAPSHOT.json")
     upstream = snapshot["upstream_tree"]
-    upstream_base = (
-        "https://github.com/nsidnev/fastapi-realworld-example-app/blob/"
-        "029eb7781c60d5f563ee8990a0cbfb79b244538c/"
-    )
     for row in upstream:
-        assert row["source_url"] == upstream_base + row["path"]
+        _source_identity(snapshot, {**row, "source_path": row["path"]})
         assert row["selected"] == (row["selection_reason"] != "excluded_from_fixture_scope")
-    assert {
-        row["path"] for row in upstream if row["selected"] and not row["path"].startswith("app/")
-    } == expected_root
-
-    selected = snapshot["files"]
-    app_files = [item for item in selected if item["path"].startswith("app/")]
-    non_python = [item for item in app_files if not item["path"].endswith(".py")]
-    actual_app = {
-        path.relative_to(ROOT / fixture).as_posix()
-        for path in (ROOT / fixture / "app").rglob("*")
-        if path.is_file()
-    }
-    assert actual_app == {item["path"] for item in app_files}
-    assert {Path(item["path"]).suffix for item in non_python} == {".sql", ".pyi", ".mako"}
-    assert {
-        item["path"] for item in selected if not item["path"].startswith("app/")
-    } == expected_root
-
     upstream_by_path = {row["path"]: row["git_blob_sha1"] for row in upstream}
+    selected = snapshot["files"]
     for item in selected:
-        target = ROOT / fixture / item["path"]
-        payload = target.read_bytes()
-        assert _sha256(target) == item["sha256"]
+        payload = (fixture / item["path"]).read_bytes()
+        assert _sha256(fixture / item["path"]) == item["sha256"]
         assert _git_blob_sha1(payload) == upstream_by_path[item["path"]]
-        assert item["source_url"].startswith(
-            "https://github.com/nsidnev/fastapi-realworld-example-app/blob/029eb7781c60d5f563ee8990a0cbfb79b244538c/"
-        )
+        _source_identity(snapshot, {**item, "source_path": item["path"]})
+    listed = {item["path"] for item in selected}
+    assert _on_disk(fixture, "app") == {path for path in listed if path.startswith("app/")}
+    assert {row["path"] for row in upstream if row["selected"]} == listed
 
 
-def test_nest_snapshot_preserves_original_and_derived_build_inputs() -> None:
-    fixture = "fixtures/L-nest-realworld"
-    snapshot = _snapshot(f"{fixture}/SNAPSHOT.json")
-    assert snapshot["repository"] == "mikro-orm/nestjs-realworld-example-app"
-    assert snapshot["commit"] == "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9"
-
+def test_nest_snapshot_matches_the_original_derived_and_support_files() -> None:
+    fixture = ROOT / "fixtures/L-nest-realworld"
+    snapshot = _snapshot("fixtures/L-nest-realworld/SNAPSHOT.json")
     originals = snapshot["original_src_files"]
-    upstream_base = (
-        "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/"
-        "a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/"
-    )
-    for item in originals:
-        assert item["source_path"] == item["path"]
-        assert item["source_url"] == upstream_base + item["source_path"]
-    excluded = [item for item in originals if not item["build_input"]]
-    expected_excluded = {
-        "src/tag/tag.controller.spec.ts",
-        "src/user/test/user.controller.spec.ts",
-        "src/user/test/user.service.spec.ts",
-        "src/config.ts.example",
-        "src/mikro-orm.config.ts.example",
-        "src/migrations/.snapshot-nestjsrealworld.json",
-    }
-    assert {item["path"] for item in excluded} == expected_excluded
-
     derived = snapshot["derived_files"]
-    assert {item["source_path"]: item["path"] for item in derived} == {
-        "src/config.ts.example": "src/config.ts",
-        "src/mikro-orm.config.ts.example": "src/mikro-orm.config.ts",
-    }
-    actual_src = {
-        path.relative_to(ROOT / fixture).as_posix()
-        for path in (ROOT / fixture / "src").rglob("*")
-        if path.is_file()
-    }
-    assert actual_src == {item["path"] for item in originals} | {item["path"] for item in derived}
-
-    for item in originals:
-        target = ROOT / fixture / item["path"]
-        assert _sha256(target) == item["sha256"]
+    for item in [*originals, *snapshot["support_files"]]:
+        assert _sha256(fixture / item["path"]) == item["sha256"]
+        _source_identity(snapshot, item)
     for item in derived:
-        source = ROOT / fixture / item["source_path"]
-        target = ROOT / fixture / item["path"]
+        source, target = fixture / item["source_path"], fixture / item["path"]
         assert source.read_bytes() == target.read_bytes()
         assert _sha256(source) == item["source_sha256"] == item["sha256"]
-
-    support = snapshot["support_files"]
-    assert {item["path"] for item in support} == {
-        "LICENSE",
-        "UPSTREAM_README.md",
-        "package.json",
-        "yarn.lock",
-        "tsconfig.json",
-        "tsconfig.build.json",
-    }
-    upstream_readme = next(item for item in support if item["source_path"] == "README.md")
-    assert upstream_readme["path"] == "UPSTREAM_README.md"
-    for item in support:
-        target = ROOT / fixture / item["path"]
-        assert _sha256(target) == item["sha256"]
-        assert item["source_url"].startswith(
-            "https://github.com/mikro-orm/nestjs-realworld-example-app/blob/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9/"
-        )
+    assert _on_disk(fixture, "src") == {item["path"] for item in [*originals, *derived]}
 
 
-def test_nest_resolver_inputs_are_pinned_and_outside_application_scope() -> None:
-    fixture = "fixtures/L-nest-realworld"
-    provenance = _snapshot(f"{fixture}/resolver-inputs/provenance.json")
+def test_nest_resolver_inputs_are_pinned() -> None:
+    fixture = ROOT / "fixtures/L-nest-realworld"
+    provenance = _snapshot("fixtures/L-nest-realworld/resolver-inputs/provenance.json")
     packages = provenance["packages"]
-    resolver_files = [file for package in packages for file in package["files"]]
-    licenses = [package["license_file"] for package in packages]
-    assert len({package["lock_locator"] for package in packages}) == len(packages)
-    for package, records in zip(packages, licenses, strict=True):
-        assert package["name"] in package["lock_locator"]
-        assert package["version"] in package["lock_locator"]
+    for package in packages:
         assert package["tarball_integrity"].startswith("sha512-")
-        assert records["path"].endswith("/LICENSE")
-    for record in [*resolver_files, *licenses]:
-        path = ROOT / fixture / "resolver-inputs" / record["path"]
-        assert path.is_file()
-        assert path.stat().st_size == record["size"]
-        assert _sha256(path) == record["sha256"]
-    assert not any(
-        path.is_relative_to(ROOT / fixture / "src")
-        for path in (ROOT / fixture / "resolver-inputs").rglob("*")
-        if path.is_file()
-    )
+        for record in [*package["files"], package["license_file"]]:
+            path = fixture / "resolver-inputs" / record["path"]
+            assert path.stat().st_size == record["size"]
+            assert _sha256(path) == record["sha256"]

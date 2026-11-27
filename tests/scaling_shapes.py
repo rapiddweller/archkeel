@@ -7,8 +7,7 @@ Each shape is a function from a count n to the bytes of one source file. The siz
 grows with n, and so does the number of the construct. `test_collector_native_scaling.py` times
 the collector on n and 2n and bounds the ratio. A walk with a loop over the siblings, the
 ancestors or the line of each node is quadratic on the shape that stresses it, and the ratio shows.
-The `sites-*` shapes live in `scaling_site_shapes.py` and the coverage tables in
-`scaling_coverage.py`; `SHAPES` holds both sets of shapes.
+The `sites-*` shapes live in `scaling_site_shapes.py`; `SHAPES` holds both sets of shapes.
 """
 
 from __future__ import annotations

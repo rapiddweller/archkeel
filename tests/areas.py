@@ -42,7 +42,6 @@ AREAS: dict[str, tuple[str, ...]] = {
     "reports": ("test_report*.py", "test_flow*.py"),
     "self-check and CI": (
         "test_repository_hygiene.py",
-        "test_ir_owners.py",
         "test_area_selection.py",
         "test_native_touched.py",
         "test_pr_report.py",
@@ -62,8 +61,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_phase_timings.py",
         "test_ci_daily.py",
         "test_native_ci.py",
-        "test_native_neutral_crates.py",
-        "test_native_contract_rules.py",
         "test_native_report.py",
         "test_native_standard_library.py",
         "test_native_versions.py",
@@ -148,9 +145,7 @@ HEAVY_FILES = frozenset(
         "test_collector_native_rust_receivers_compiled.py",
         "test_collector_native_rust_unextracted.py",
         "test_native_report.py",
-        "test_native_self_contract.py",
         "test_native_self_core_rows.py",
-        "test_native_self_rules.py",
         "test_parallel_execution.py",
     }
 )

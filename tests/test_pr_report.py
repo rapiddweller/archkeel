@@ -34,7 +34,7 @@ def test_the_precheck_runs_only_the_cheap_steps_and_all_failures_are_listed(caps
     assert not any("make" in command for command in ran)
     assert "format | FAIL" in out and "hygiene | FAIL" in out
     assert "E  ruff format broke" in out and "fix:" in out
-    assert "2 of 5 steps failed" in out
+    assert "2 of 4 steps failed" in out
 
 
 def test_the_report_runs_the_steps_after_a_failure_and_the_cheap_ones_come_first() -> None:

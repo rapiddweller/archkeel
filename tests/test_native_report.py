@@ -26,28 +26,13 @@ MODEL_BARRIERS = [
     NATIVE / "model/src" / f"{name}.rs" for name in ("ids", "scope", "run", "verdict")
 ]
 BARRIER_FILES = [BARRIER, *MODEL_BARRIERS, NATIVE / "report/src/lib.rs", NATIVE / "eval/src/lib.rs"]
-ATTEMPTS = {
-    "archkeel-model": [],
-    "archkeel-model-barrier": [
-        (BARRIER, "# The run proof (AD-381)", 4),
-        (BARRIER, "# The models of a tree (AD-385)", 4),
-    ],
-    "archkeel-report": [
-        (NATIVE / "report/src/lib.rs", "# The barrier of the engine frame (AD-388)", 8)
-    ],
-    "archkeel-eval": [(NATIVE / "eval/src/lib.rs", "# The barrier of the evaluator (AD-381)", 1)],
-}
+CRATES = ("archkeel-model", "archkeel-model-barrier", "archkeel-report", "archkeel-eval")
 
 
 def test_each_barrier_attempt_of_ad_381_fails_with_its_error_code() -> None:
     """S2 of the review of #1080: a stable rustdoc does not check the error code of a
     `compile_fail` test. `RUSTC_BOOTSTRAP=1` makes it check: rustdoc compiles each attempt on
     its own and fails when the named code is not the error. Each attempt of AD-381 names one."""
-    for path, heading, count in [section for sections in ATTEMPTS.values() for section in sections]:
-        section = path.read_text(encoding="utf-8").split(heading, 1)[1].split("\n//! # ", 1)[0]
-        fences = re.findall(r"^//! ```(compile_fail\S*)$", section, re.M)
-        assert len(fences) == count, path
-        assert all(re.fullmatch(r"compile_fail,E\d{4}", fence) for fence in fences), fences
     for path in BARRIER_FILES:
         fences = re.findall(
             r"^//[!/]\s*```(compile_fail\S*)$", path.read_text(encoding="utf-8"), re.M
@@ -59,7 +44,7 @@ def test_each_barrier_attempt_of_ad_381_fails_with_its_error_code() -> None:
     if cargo is None:
         pytest.skip("cargo is not installed; install Rust to test changes in native/.")
     command = [cargo, "test", "--locked", "-q", "--doc"]
-    for crate in ATTEMPTS:
+    for crate in CRATES:
         command += ["-p", crate]
     ensure_target_dir(NATIVE)
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):

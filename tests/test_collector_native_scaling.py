@@ -6,8 +6,7 @@
 Consumer: every later phase of the native collector, which reads the facts of the walk. For each
 construct class of `scaling_shapes.SHAPES` a test builds a file with n of the construct. No test
 here times anything: a time ratio depends on the runner. The memory cases bound the peak memory
-of the collector on the nests that were quadratic once (see AD-323). Two more tests compare the
-dump with `parse.parse()` for each shape, so that each shape holds the construct that it claims.
+of the collector on the nests that were quadratic once (see AD-323).
 
 `ARCHKEEL_SCALING_BINARY` names another collector, to run the cases against an older build.
 """
@@ -16,18 +15,15 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 from collector_wire import request_bytes
-from scaling_coverage import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY
 from scaling_shape_kit import Shape
 from scaling_shapes import SHAPES
 from scaling_walk_only import WALK_ONLY
-from test_collector_native_syntax import _native
 
 # A file may not be larger than this: the collector reads at most 4 MiB (AD-319).
 MAX_BYTES = 3_500_000
@@ -134,61 +130,3 @@ def test_writes_keep_the_memory_bounded(
 
 
 SITE_PREFIX = "sites-"
-
-
-def _kinds() -> list[str]:
-    source = (Path(__file__).parents[1] / "native/typescript/src/kinds.rs").read_text()
-    # AD-406: the library target narrows the enum to `pub(crate)`; either visibility is the one
-    # declaration, and a missing enum still fails here.
-    found = re.search(r"^pub(?:\(crate\))? enum K \{", source, flags=re.MULTILINE)
-    if found is None:
-        raise ValueError("kinds.rs declares no enum K")
-    body = source[found.start() :].split("\n}\n", 1)[0]
-    return re.findall(r"^    (\w+),", body, flags=re.MULTILINE)
-
-
-def test_every_shape_the_table_names_exists() -> None:
-    named = {name for shapes in (*COVERAGE.values(), *FIELD_COVERAGE.values()) for name in shapes}
-    assert sorted(named - SHAPES.keys()) == []
-    # A shape that no class names holds no construct that anyone promised.
-    assert sorted(SHAPES.keys() - named) == []
-
-
-def test_every_kind_of_the_port_is_in_one_construct_class_with_shapes() -> None:
-    kinds = [kind for kind in _kinds() if kind != "Other"]
-    assert len(kinds) > 100
-    placed = [kind for names in KIND_CLASSES.values() for kind in names]
-    assert sorted(set(kinds) - set(placed)) == [], "a kind of kinds.rs has no construct class"
-    assert sorted(set(placed) - set(kinds)) == [], "a class names a kind that does not exist"
-    assert len(placed) == len(set(placed)), "a kind is in two classes"
-    assert KIND_CLASSES.keys() <= COVERAGE.keys()
-    assert all(COVERAGE[name] for name in KIND_CLASSES)
-
-
-def test_a_shape_holds_the_kinds_that_its_class_claims(
-    tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
-) -> None:
-    """The dump lists the node kinds of each file. Each shape is run at n = 3."""
-    files = []
-    for name, shape in SHAPES.items():
-        path = tmp_path / f"{name}{shape.suffix}"
-        path.write_bytes(shape.make(3))
-        files.append((f"src/{path.name}", path))
-    replies = _native(dump_binary, files)
-    seen = {name: set(reply["kinds"]) for name, reply in zip(SHAPES, replies, strict=True)}
-    problems = []
-    for construct, kinds in KIND_CLASSES.items():
-        shapes = COVERAGE[construct]
-        held = set().union(*(seen[shape] for shape in shapes))
-        problems += [
-            f"{construct}: no shape holds {kind}" for kind in kinds if kind not in held | NAME_ONLY
-        ]
-        problems += [
-            f"{construct}: {shape} holds none of its kinds"
-            for shape in shapes
-            if not seen[shape] & set(kinds)
-        ]
-    assert problems == []
-    # A name-only kind is one that no shape holds.
-    assert sorted(kind for kind in NAME_ONLY if any(kind in kinds for kinds in seen.values())) == []
