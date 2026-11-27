@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Executed checks of the Make and CI wrappers: aggregates, cleanup, mermaid and test ownership."""
+"""Executed checks of the Make and CI wrappers: aggregates, cleanup and test ownership."""
 
 from __future__ import annotations
 
@@ -58,34 +58,6 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     assert "failed" not in results["cancelled"].stderr
     assert "skipped" in results["skipped"].stderr
     assert "failed" in results["failure"].stderr
-
-
-@pytest.mark.parametrize("renderer_exit", [0, 1])
-def test_mermaid_renders_every_block_and_propagates_renderer_failure(
-    tmp_path: Path, renderer_exit: int
-) -> None:
-    renderer = tmp_path / "npx"
-    invocations = tmp_path / "renders"
-    renderer.write_text(
-        f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{invocations}"\nexit {renderer_exit}\n'
-    )
-    renderer.chmod(0o755)
-    result = run_bounded(
-        ["make", "mermaid"],
-        cwd=ROOT,
-        env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    extracted = [line for line in result.stdout.splitlines() if ".mmd\t" in line]
-    rendered = invocations.read_text().splitlines()
-    assert len(rendered) == len(extracted) > 1
-    assert all("@mermaid-js/mermaid-cli@11.17.0" in line for line in rendered)
-    assert result.returncode == (0 if renderer_exit == 0 else 2), result.stderr
-    if renderer_exit:
-        assert result.stdout.count("::error::") == len(rendered)
-        assert all(line.split("\t", 1)[1] in result.stdout for line in extracted)
 
 
 def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:

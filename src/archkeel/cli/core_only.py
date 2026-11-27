@@ -19,13 +19,12 @@ import traceback
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
-from time import time_ns
 from typing import Final
 
 from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, output_mode, parse
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
-from .core_binding import ProjectRoot, RootMode, resolve_root
+from .core_binding import ProjectRoot, RootMode, request_started_ns, resolve_root
 from .core_delivery import _deliver, _explorer_report, _Refusal, _refuse_timings_target
 from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
@@ -340,7 +339,7 @@ def _exchange_scan(
     """Request and bind a core frame before delivery or publication."""
     request = _request(options, project)
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
-    started_ns = time_ns()
+    started_ns = request_started_ns()
     payload = json.dumps(request).encode()
     with scan_progress(project.path):
         if options.timings is None:  # #659: the phase seconds come on standard error only if asked

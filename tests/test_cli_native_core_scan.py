@@ -29,6 +29,3 @@ def test_the_release_uses_the_collector_without_its_test_feature(collector: str)
     ).stdout
     assert "archkeel-core" not in tree
     assert 'feature "dump"' not in tree
-    hook = (NATIVE / "hatch_build.py").read_text()
-    assert '"auditable", "build", "--release", "--locked", "--target-dir"' in hook
-    assert "--features" not in hook

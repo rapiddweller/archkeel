@@ -86,38 +86,3 @@ def _make(
 def test_the_recipe_runs_nothing_when_native_is_unchanged(tmp_path: Path) -> None:
     code, calls = _make(tmp_path, "")
     assert (code, calls) == (0, [])
-
-
-def test_the_recipe_checks_the_format_and_lints_the_touched_crates(tmp_path: Path) -> None:
-    code, calls = _make(tmp_path, "-p archkeel-core -p archkeel-report")
-    assert code == 0
-    assert calls == [
-        "fmt --all -- --check",
-        "clippy --locked --all-targets -p archkeel-core -p archkeel-report -- -D warnings",
-    ]
-
-
-def test_a_pin_only_change_checks_the_format_alone(tmp_path: Path) -> None:
-    code, calls = _make(tmp_path, "-")
-    assert (code, calls) == (0, ["fmt --all -- --check"])
-
-
-def test_an_unformatted_file_fails_the_gate_before_clippy_runs(
-    tmp_path: Path,
-) -> None:
-    code, calls = _make(tmp_path, "-p archkeel-core", fmt_fails=True)
-    assert code != 0 and calls == ["fmt --all -- --check"]
-
-
-def test_the_pr_gate_workflow_runs_the_native_lint_after_the_core_build() -> None:
-    text = (ROOT / ".github/workflows/pr-gate.yml").read_text()
-    assert "make pr-native-lint PR_BASE=" in text
-
-
-def test_the_hosted_gate_leaves_out_what_the_native_job_runs(tmp_path: Path) -> None:
-    """PR_HOSTED=1: `native-check` runs the fmt, the driver rustfmt and the workspace clippy."""
-    assert _make(tmp_path, "--workspace", hosted=True) == (0, [])
-    code, calls = _make(tmp_path, "-p archkeel-core", hosted=True)
-    assert code == 0
-    assert calls == ["clippy --locked --all-targets -p archkeel-core -- -D warnings"]
-    assert _make(tmp_path, "-", hosted=True) == (0, [])

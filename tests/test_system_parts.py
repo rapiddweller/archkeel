@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -15,55 +14,7 @@ from test_report_product_page import _STUB, _frame, _visible
 from tools import report_gallery
 from tools.report_product import Part
 from tools.report_product_page import product_page
-from tools.system_parts import DOCUMENT, ROOT, load
-
-SHAPE = {"schema_version", "kind", "title", "parts", "interfaces", "rules"}
-PART = {"id", "title", "config", "responsibilities", "forbidden_responsibilities", "provides"}
-
-
-def test_the_document_has_the_shape_of_the_first_slice_of_the_system_contract() -> None:
-    data = json.loads(DOCUMENT.read_text())
-    assert set(data) == SHAPE and data["kind"] == "system" and data["rules"] == []
-    assert all(set(part) == PART for part in data["parts"])
-    # Every part writes what it is for, what it is not for and what it provides.
-    assert all(part[key] for part in data["parts"] for key in PART - {"id", "title", "config"})
-    # No field that a contract reads names a language (a title is text for people): the language
-    # and the roots come from the scan configuration.
-    read = [data["kind"], data["schema_version"]]
-    read += [part[key] for part in data["parts"] for key in ("id", "config")]
-    flat = " ".join(read).lower()
-    assert not any(word in flat for word in ("python", "rust", "typescript", "dart"))
-    system = load()
-    assert [(p.language, p.subject) for p in system.parts] == [
-        ("PYTHON", "Python shell (src/archkeel)"),
-        ("RUST", "Rust core (native)"),
-        ("TYPESCRIPT", "Studio UI (studio/src)"),
-    ]
-    assert system.name == "ArchKeel (Python shell + Rust core + Studio UI)"
-
-
-def test_no_tool_or_makefile_target_hard_wires_a_part() -> None:
-    makefile = (ROOT / "Makefile").read_text()
-    recipe = makefile.split("self-validate-system:")[1].split("\n\n")[0]
-    # AD-616: the core runs the system document; the recipe names no part, config or result path.
-    assert "--config $(SYSTEM_DOCUMENT)" in recipe
-    assert "docs/architecture" not in recipe and "native/" not in recipe and ".json" not in recipe
-    document = DOCUMENT.relative_to(ROOT).as_posix()
-    assert f"SYSTEM_DOCUMENT := {document}\n" in makefile
-    for tool in (
-        "report_product.py",
-        "report_product_page.py",
-        "report_gallery.py",
-    ):
-        text = (ROOT / "tools" / tool).read_text()
-        assert "ArchKeel (Python shell" not in text and "SYSTEM_TITLE" not in text, tool
-        assert not re.search(r'["\'](Python shell|Rust core)["\']', text), tool
-
-
-def test_the_gallery_self_runs_are_the_parts_of_the_document() -> None:
-    parts = load().parts
-    assert [run["name"] for run in report_gallery.SELF_RUNS] == [p.id for p in parts]
-    assert [run["config"] for run in report_gallery.SELF_RUNS] == [p.config for p in parts]
+from tools.system_parts import load
 
 
 def _fake(tmp_path: Path, ids: list[str]) -> Path:

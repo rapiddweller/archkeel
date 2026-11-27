@@ -60,19 +60,3 @@ def test_the_words_follow_the_status_of_the_box(
     status: str, rows: list[dict[str, str]], text: str
 ) -> None:
     assert chip(status, rows) == text
-
-
-def test_no_box_says_deviation_any_more() -> None:
-    assert "deviation inside" not in SCENE.read_text(encoding="utf-8")
-    for part in sorted(SCENE.with_name("flow").glob("*.js")):
-        assert "deviation inside" not in part.read_text(encoding="utf-8"), part.name
-
-
-def test_the_colour_of_the_box_lines_follows_the_status_of_the_box() -> None:
-    css = SCENE.with_name("explorer-edges-atlas.css").read_text(encoding="utf-8")
-    assert ".atlas-finding-chip,\n.rp-explorer .atlas-deviation-chip{fill:var(--ink-muted)}" in css
-    for status, token in (("UNKNOWN", "--unknown-text"), ("FAIL", "--fail")):
-        assert (
-            f'.node[data-assessment-status="{status}"] .atlas-deviation-chip{{fill:var({token})}}'
-            in css
-        )

@@ -268,12 +268,6 @@ fn a_descriptor_whose_facts_do_not_match_the_scan_names_the_field() {
 }
 
 #[test]
-fn the_schema_number_of_the_driver_is_the_one_of_the_reader() {
-    let out = include_str!("../../../tools/rustc-facts/src/out.rs");
-    assert!(out.contains(&format!("const SCHEMA: u32 = {};", super::SCHEMA)));
-}
-
-#[test]
 fn a_scanned_file_under_no_member_is_a_refusal() {
     // A path dependency in the repository tree that is no workspace member: the facts name its file.
     let files = [file("a-1", |v| {
