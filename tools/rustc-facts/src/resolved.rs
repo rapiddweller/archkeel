@@ -20,10 +20,14 @@ use std::collections::BTreeSet;
 /// The impls, the statics and the constants of the library: a call into another crate is open (`foreign_member`).
 fn impl_index(st: &mut State, tcx: TyCtxt<'_>) -> ImplIndex {
     let mut index = ImplIndex::default();
-    for id in tcx.hir_crate_items(()).free_items() {
-        let kind = tcx.def_kind(id.owner_id);
-        if matches!(kind, DefKind::Static { .. } | DefKind::Const { .. }) {
-            let did = id.owner_id.to_def_id();
+    // Every definition: an associated constant and an item inside a body are no free item.
+    for id in tcx.hir_crate_items(()).definitions() {
+        let kind = tcx.def_kind(id);
+        if matches!(
+            kind,
+            DefKind::Static { .. } | DefKind::Const { .. } | DefKind::AssocConst { .. }
+        ) {
+            let did = id.to_def_id();
             let file = crate::items::file(tcx, st, did);
             index.statics.entry(file).or_default().push(did);
         }
