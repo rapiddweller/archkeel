@@ -1,4 +1,4 @@
-# AD-1310: The request start is read on the clock of file times, and an equal change time refuses
+# AD-1320: The request start is read on the clock of file times, and an equal change time refuses
 
 Status: accepted. Closes #2204. Amends AD-438.
 
@@ -27,7 +27,7 @@ and macOS stamp a fine time, so they did not show it.
 
 - A write 20 us or 2 ms after the start: refused (0 of 10,000 missed, measured).
 - A file written 5 ms before the start: bound (0 of 2,000 refused).
-- A change time equal to the start: refused. One above the file time: bound (`tests/test_core_binding_started.py`).
+- A change time equal to the start: refused. One above the file time: bound (`tests/test_cli_core_binding_started.py`).
 - A refusal is the safe direction: the message says to run again. A file that was written in the very tick of the start
   is refused once, and binds on the next run.
 
