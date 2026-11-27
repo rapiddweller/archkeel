@@ -6,8 +6,8 @@ of the test time. They run in a separate area in the PR, main and Full tiers.
 The existing tier markers continue to select the tests.
 
 Both areas run when a source change could reach them. Each workflow installs the
-compiler components needed by the native self-check tests. The area floor and
-matrix tests check the selection.
+compiler components needed by the native self-check tests. The empty-area check
+and the matrix tests check the selection.
 
 We did not move tests to a slower tier. That would reduce the tests run before a
 merge and would not reduce the Full job time. A second job adds runner setup and
