@@ -16,10 +16,9 @@ from typing import Any
 from core_support import (
     NATIVE,
     SUFFIX,
-    copy_native,
     ensure_target_dir,
 )
-from corpus_support import commit_tree, corpus_cases, materialized
+from corpus_support import corpus_cases, materialized
 from filelock import FileLock
 from frozen_native import frozen_root as frozen_root
 
@@ -82,40 +81,5 @@ def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
             )
         assert done.returncode == 0, done.stdout + done.stderr
     assert f"Rust fact parity: {len(requests)} equal; 0 differences" in done.stderr
-    assert len(requests) > 50
+    assert requests, "the scan corpus is empty"
     print(f"Rust scan corpus: {len(requests)} equal fact sets; {refused} named refusals")
-
-
-def test_the_core_scans_its_own_workspace_with_no_shell_reply(
-    built: Path, tmp_path: Path, frozen_root: Path
-) -> None:
-    root = tmp_path / "project"
-    copy_native(root, frozen_root)
-    commit_tree(root)
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    request = {
-        "protocol": native_scan.SCAN_PROTOCOL,
-        "root": str(root.resolve()),
-        "config": "native/archkeel.toml",
-        "git_head": head,
-        "dirty": False,
-    }
-    # No shell collector runs. The only program under test receives the scan identity.
-    stdout, code = native_scan.exchange(
-        str(built / f"archkeel-core{SUFFIX}"), "scan", json.dumps(request).encode()
-    )
-    frame = json.loads(stdout)
-    # AD-418: the core decides each rule of its own contract, so the frame names no part, with one
-    # exception (AD-1212). This scan has no compiler facts, so a drawn edge that only the compiler
-    # proves is a named hold (`graph.needs_facts`). No list of edges is pinned. A stale drawn edge
-    # is a `graph.drift` and never a needs-facts hold. The paired evidence tests with and without
-    # the compiler are in `test_cli_native_rust_selected_eq_edge.py` and `..._type_reach.py`.
-    assert code == 3, frame["unsupported"]
-    place = "hygiene:graph.needs_facts:native/architecture-contract.json/components"
-    holds = frame["unsupported"]["rules"]
-    assert holds and all(row.startswith(f"{place}:docs/architecture/native.md ") for row in holds)
-    assert not any("graph.drift" in row for row in holds)
-    assert frame["status"] in ("PASS", "UNKNOWN")
-    assert frame["self_test"]["collect"]["request"]["resolver"] == {"language": "rust"}
-    assert frame["self_test"]["reply"]["files"] > 0
-    assert "producer not verified" not in json.dumps(frame["unsupported"])

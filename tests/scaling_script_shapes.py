@@ -79,16 +79,3 @@ SCRIPT_SHAPES: dict[str, Shape] = {
         lambda n: _each("var c{i} = {};\nc{i}.a = 1;\nc{i}.b.c = 2;\n", n).encode(), 2000, ".js"
     ),
 }
-
-# Each script fact of `Syntax` and the shapes that hold it.
-SCRIPT_FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
-    "script_globals": ("script-one-wrapper", "script-wrappers", "script-source-members"),
-    "script_writes": ("script-opaque-writes", "script-top-level"),
-    "script_aliases": ("script-aliases", "script-alias-factories"),
-    "script_factories": ("script-factory-members",),
-    "script_source_writes": ("script-top-level", "script-write-paths"),
-    "script_write_paths": ("script-write-paths",),
-    "script_top_level_write_paths": ("script-top-level",),
-    "script_destructures": ("script-destructures",),
-    "script_namespaces": ("script-namespaces",),
-}
