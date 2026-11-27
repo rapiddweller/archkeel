@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -105,6 +106,164 @@ PLANTS = {
         CFG,
     ),
 }
+
+
+def source(text: str) -> str:
+    """A plant from plain text: `PAYLOAD` stands for the string that imports `app.lib`."""
+    return HEAD + textwrap.dedent(text).replace("PAYLOAD", f'"{IMPORT}"') + HINTS
+
+
+SCOPES = {
+    "store in a function with the written value of that scope": source(
+        """
+        s = str(PAYLOAD)
+
+
+        class C:
+            s = 'int'
+
+
+        def f():
+            C.s = s
+
+
+        f()
+
+
+        class K:
+            x: C.s
+        """
+    ),
+    "scanned module member written by another module": (
+        consumer(
+            "import app.cfg as cfg\ncfg.s = str(PAYLOAD)\n".replace("PAYLOAD", f'"{IMPORT}"'),
+            "cfg.s",
+        ),
+        {"src/app/cfg.py": "s = 'int'\n"},
+    ),
+    "standard module written through an alias": source(
+        """
+        import contextlib
+
+        alias = contextlib
+        alias.AbstractContextManager = str(PAYLOAD)
+
+
+        class K:
+            x: contextlib.AbstractContextManager
+        """
+    ),
+    "standard module written through a parameter": source(
+        """
+        import inspect
+
+
+        def patch(module):
+            module.Signature = PAYLOAD
+
+
+        patch(inspect)
+
+
+        class K:
+            x: inspect.Signature
+        """
+    ),
+    "global declaration reads the module": source(
+        """
+        s = str(PAYLOAD)
+
+
+        def outer():
+            s = 'int'
+
+            def inner():
+                global s
+
+                class K:
+                    x: s
+
+                return K
+
+            return inner()
+
+
+        K = outer()
+        """
+    ),
+    "quoted annotation reads the module globals": source(
+        """
+        s = str(PAYLOAD)
+
+
+        def make():
+            s = 'int'
+
+            def f(x: 's'):
+                pass
+
+            return f
+
+
+        K = make()
+        """
+    ),
+    "deleted override leaves the inherited string": source(
+        """
+        class B:
+            pass
+
+
+        B.s = str(PAYLOAD)
+
+
+        class C(B):
+            s = 'int'
+            del s
+
+
+        class K:
+            x: C.s
+        """
+    ),
+    "item of a standard mapping": source(
+        """
+        import os
+
+        os.environ["HINT"] = PAYLOAD
+        s = os.environ['HINT']
+
+
+        class K:
+            x: s
+        """
+    ),
+    "nonlocal write through a function without the name": source(
+        """
+        def outer():
+            s = 'int'
+
+            def middle():
+                def inner():
+                    nonlocal s
+                    s = PAYLOAD
+
+                inner()
+
+            middle()
+
+            class K:
+                x: s
+
+            return K
+
+
+        K = outer()
+        """
+    ),
+}
+
+PLANTS.update(SCOPES)
 CONTROLS = {
     "nine equal texts": (consumer("s = 'int'\n" * 9, "s"), {}),
     "class of another module": (
@@ -125,12 +284,23 @@ CONTROLS = {
         ),
         {},
     ),
+    "instance attribute named like a standard name": (
+        HEAD
+        + "import datetime\n\n\nclass A:\n    def __init__(self):\n        self.date = 1\n\n\n"
+        + "class K:\n    x: datetime.date\n"
+        + HINTS,
+        {},
+    ),
     "typing alias": (consumer("Alias = typing.Optional[int]\n", "Alias"), {}),
     "name of a parameter elsewhere": (
         HEAD + "def f(list):\n    return list\n\n\nclass K:\n    x: list[int]\n" + HINTS,
         {},
     ),
 }
+
+
+def _plant(entry: str | tuple[str, dict[str, str]]) -> tuple[str, dict[str, str]]:
+    return (entry, {}) if isinstance(entry, str) else entry
 
 
 def _root_with(tmp: Path, source: str, files: dict[str, str]) -> Path:
@@ -152,7 +322,7 @@ def _root_with(tmp: Path, source: str, files: dict[str, str]) -> Path:
 def test_a_binding_the_rule_cannot_close_is_never_pass(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str
 ) -> None:
-    source, files = PLANTS[name]
+    source, files = _plant(PLANTS[name])
     root = _root_with(tmp_path, source, files)
     assert _counter(root) == 1, "CPython must load app.lib once: the plant is real"
     frame = _verdict(root, release_core, monkeypatch)["frame"]

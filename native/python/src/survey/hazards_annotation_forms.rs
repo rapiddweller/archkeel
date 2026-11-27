@@ -7,6 +7,8 @@
 
 use ruff_python_ast::{Expr, ExprSubscript, Identifier, Stmt};
 
+use crate::survey::typing_count::builtin;
+
 /// A call of these makes a type form, not a string.
 pub(super) const TYPE_FORMS: [&str; 7] = [
     "TypeVar",
@@ -60,4 +62,23 @@ pub(super) fn items(node: &ExprSubscript) -> Vec<&Expr> {
         all.len()
     };
     all.into_iter().take(count).collect()
+}
+
+/// True when subscripting the standard `path` can give a type: a type or special form of a module
+/// that holds only those, a builtin container, `type` or `os.PathLike`. Any other standard path
+/// (`os.environ`) can be data, and `data[k]` can be a string.
+pub(super) fn type_subscription(path: &str) -> bool {
+    let module = path.rsplit_once('.').map_or("", |(module, _)| module);
+    matches!(
+        module,
+        "typing"
+            | "typing_extensions"
+            | "collections.abc"
+            | "collections"
+            | "re"
+            | "queue"
+            | "contextlib"
+            | "weakref"
+    ) || builtin(path)
+        || matches!(path, "type" | "os.PathLike")
 }

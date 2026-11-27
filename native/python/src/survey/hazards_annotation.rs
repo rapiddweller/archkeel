@@ -15,7 +15,7 @@ use ruff_python_ast::{Expr, ExprCall, ExprStringLiteral, Identifier, ModModule, 
 use crate::parse::Unread;
 
 #[path = "hazards_annotation_clean.rs"]
-pub(in crate::survey::hazards) mod clean;
+mod clean;
 #[path = "hazards_annotation_entity.rs"]
 pub(in crate::survey::hazards) mod entity;
 #[path = "hazards_annotation_facts.rs"]
@@ -24,6 +24,8 @@ mod facts;
 mod forms;
 #[path = "hazards_annotation_scopes.rs"]
 mod scopes;
+#[path = "hazards_annotation_sites.rs"]
+pub(in crate::survey::hazards) mod sites;
 #[path = "hazards_annotation_stdlib.rs"]
 mod stdlib;
 #[path = "hazards_annotation_writes.rs"]

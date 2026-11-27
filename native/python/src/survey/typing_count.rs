@@ -420,7 +420,7 @@ impl Proof<'_> {
     }
 }
 
-fn builtin(name: &str) -> bool {
+pub(super) fn builtin(name: &str) -> bool {
     const TYPES: [&str; 11] = [
         "bool",
         "bytes",

@@ -23,6 +23,7 @@ use super::forms::last;
 use crate::module::Module;
 use crate::survey::globals_project::PURE_BUILTINS;
 use crate::survey::package_body::anchor;
+use crate::survey::typing_count::builtin;
 use crate::survey::uses_typing_guard::READS;
 
 const WRITERS: [&str; 2] = ["setattr", "delattr"];
@@ -34,6 +35,7 @@ pub(super) fn build(module: &Module) -> Facts<'_> {
             scopes: vec![root],
             annotations: Vec::new(),
             stores: HashMap::new(),
+            pending: Vec::new(),
             writes: Vec::new(),
             opaque: false,
             evaluates: false,
@@ -46,6 +48,7 @@ pub(super) fn build(module: &Module) -> Facts<'_> {
         signature: false,
     };
     walk.visit_body(&module.tree.body);
+    walk.facts.settle();
     walk.facts
 }
 
@@ -72,17 +75,15 @@ impl<'a> Build<'a, '_> {
         if scope.globals.contains(name) {
             return 0;
         }
-        if scope.nonlocals.contains(name) {
-            let above = std::iter::successors(scope.parent, |id| self.facts.scopes[*id].parent);
-            let function = above
-                .into_iter()
-                .find(|id| self.facts.scopes[*id].kind == Kind::Function);
-            return function.unwrap_or(self.current);
-        }
         self.current
     }
 
     fn bind(&mut self, name: &str, binding: Binding<'a>) {
+        if self.facts.scopes[self.current].nonlocals.contains(name) {
+            let at = self.current;
+            self.facts.pending.push((at, name.to_owned(), binding));
+            return;
+        }
         let home = self.home(name);
         let names = &mut self.facts.scopes[home].names;
         names.entry(name.to_owned()).or_default().push(binding);
@@ -95,7 +96,7 @@ impl<'a> Build<'a, '_> {
             Expr::Name(node) => self.bind(node.id.as_str(), binding()),
             Expr::Attribute(node) => {
                 let stores = self.facts.stores.entry(node.attr.to_string());
-                stores.or_default().push(binding());
+                stores.or_default().push((self.current, binding()));
                 self.facts.writes.push(Write {
                     receiver: &node.value,
                     scope: self.current,
@@ -148,6 +149,7 @@ impl<'a> Build<'a, '_> {
     fn call(&mut self, call: &'a ExprCall, expr: &'a Expr) {
         let callee = last(&call.func).unwrap_or_default();
         if READERS.contains(&callee)
+            || builtin(callee)
             || PURE_BUILTINS.contains(&callee)
             || EVALUATORS.contains(&callee)
         {
@@ -186,7 +188,7 @@ impl<'a> Build<'a, '_> {
                 (Some(Expr::StringLiteral(name)), value) => {
                     let binding = value.map_or(Binding::Unknown, Binding::Value);
                     let stores = self.facts.stores.entry(name.value.to_string());
-                    stores.or_default().push(binding);
+                    stores.or_default().push((self.current, binding));
                 }
                 _ => self.facts.opaque = true,
             }
@@ -231,8 +233,12 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
                 self.signature = false;
                 let outer = self.current;
                 self.current = self.open(Kind::Function, None);
-                for parameter in node.parameters.iter() {
-                    self.bind(parameter.name().as_str(), Binding::Unknown);
+                let method = self.facts.scopes[outer].kind == Kind::Class;
+                for (at, parameter) in node.parameters.iter().enumerate() {
+                    self.bind(
+                        parameter.name().as_str(),
+                        Binding::parameter(method && at == 0),
+                    );
                 }
                 self.visit_body(&node.body);
                 self.current = outer;
@@ -264,6 +270,7 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
                 }
             }
             Stmt::AugAssign(node) => self.target(&node.target, None),
+            Stmt::Delete(node) => node.targets.iter().for_each(|t| self.target(t, None)),
             Stmt::For(node) => {
                 self.bless(&node.iter);
                 self.target(&node.target, None);

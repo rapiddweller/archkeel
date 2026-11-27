@@ -11,6 +11,10 @@ use ruff_text_size::TextRange;
 
 pub(super) type ScopeId = usize;
 
+/// A flag on a scope id: the scope of a quoted annotation. Python evaluates its text in the module
+/// globals and in the class of the annotation, never in the locals of a function.
+pub(super) const TEXT: ScopeId = 1 << 40;
+
 /// The names that hold or run annotations.
 pub(super) const RESERVED: [&str; 4] = [
     "__annotations__",
@@ -29,15 +33,10 @@ pub(super) const EVALUATORS: [&str; 5] = [
 /// name by a name that the table cannot read. So does a use of `x.__dict__`.
 pub(super) const NAMESPACES: [&str; 3] = ["globals", "vars", "locals"];
 /// Calls that only read the namespace that they get (with the pure builtins of `globals_project`).
-pub(super) const READERS: [&str; 18] = [
+pub(super) const READERS: [&str; 13] = [
     "getattr",
     "hasattr",
     "sorted",
-    "list",
-    "dict",
-    "set",
-    "tuple",
-    "frozenset",
     "format",
     "iter",
     "next",
@@ -64,6 +63,8 @@ pub(super) enum Binding<'a> {
     Inert,
     /// `import m` binds `(m, None)`; `from m import n` binds `(m, Some(n))`.
     Import(String, Option<String>),
+    /// The first parameter of a method: an instance or a class, never a module.
+    Receiver,
     Unknown,
 }
 
@@ -99,7 +100,9 @@ pub(super) struct Facts<'a> {
     /// Each annotation that Python evaluates, with the scope that holds it.
     pub(super) annotations: Vec<(&'a Expr, ScopeId)>,
     /// `x.a = v` and `setattr(x, "a", v)` by the attribute name, for any receiver.
-    pub(super) stores: HashMap<String, Vec<Binding<'a>>>,
+    pub(super) stores: HashMap<String, Vec<(ScopeId, Binding<'a>)>>,
+    /// `nonlocal` writes: `(scope of the write, name, binding)`, placed when the walk is over.
+    pub(super) pending: Vec<(ScopeId, String, Binding<'a>)>,
     /// The same writes with their receiver.
     pub(super) writes: Vec<Write<'a>>,
     /// A write by a name that the table cannot read: no name of the module is closed.
@@ -127,11 +130,66 @@ impl<'a> Scope<'a> {
     }
 }
 
-impl Facts<'_> {
-    /// The scope that binds `id` for code in `scope`: a class scope is read only by its own body.
+impl<'a> Facts<'a> {
+    /// The scope that binds `id` for code in `scope`. A `global` declaration reads the module, a
+    /// `nonlocal` one skips its scope; a class scope is read only by its own body; the text of a
+    /// quoted annotation reads its class and the module.
     pub(super) fn holder(&self, scope: ScopeId, id: &str) -> Option<ScopeId> {
-        let chain = std::iter::successors(Some(scope), |at| self.scopes[*at].parent);
-        let mut visible = chain.filter(|at| self.scopes[*at].kind != Kind::Class || *at == scope);
-        visible.find(|at| self.scopes[*at].names.contains_key(id))
+        let start = scope & !TEXT;
+        let has = |at: &ScopeId| self.scopes[*at].names.contains_key(id);
+        if scope & TEXT != 0 {
+            let class = (self.scopes[start].kind == Kind::Class).then_some(start);
+            return class.into_iter().chain([0]).find(has);
+        }
+        let mut up = Some(start);
+        while let Some(at) = up {
+            let found = &self.scopes[at];
+            if found.globals.contains(id) {
+                return has(&0).then_some(0);
+            }
+            let skipped =
+                found.nonlocals.contains(id) || (found.kind == Kind::Class && at != start);
+            if !skipped && has(&at) {
+                return Some(at);
+            }
+            up = found.parent;
+        }
+        None
+    }
+
+    /// Place the `nonlocal` writes: Python binds the name in the nearest enclosing function that
+    /// binds it, which can lie above a function that does not.
+    pub(super) fn settle(&mut self) {
+        for (scope, name, binding) in std::mem::take(&mut self.pending) {
+            let above =
+                std::iter::successors(self.scopes[scope].parent, |at| self.scopes[*at].parent);
+            let mut functions = above.filter(|at| self.scopes[*at].kind == Kind::Function);
+            let home = functions.find(|at| self.scopes[*at].names.contains_key(&name));
+            let home = home
+                .or_else(|| self.nearest_function(scope))
+                .unwrap_or(scope);
+            self.scopes[home]
+                .names
+                .entry(name)
+                .or_default()
+                .push(binding);
+        }
+    }
+
+    fn nearest_function(&self, scope: ScopeId) -> Option<ScopeId> {
+        let above = std::iter::successors(self.scopes[scope].parent, |at| self.scopes[*at].parent);
+        let mut functions = above.filter(|at| self.scopes[*at].kind == Kind::Function);
+        functions.next()
+    }
+}
+
+impl Binding<'_> {
+    /// The binding of a parameter: the first of a method is the instance or the class.
+    pub(super) fn parameter(receiver: bool) -> Self {
+        if receiver {
+            Self::Receiver
+        } else {
+            Self::Unknown
+        }
     }
 }

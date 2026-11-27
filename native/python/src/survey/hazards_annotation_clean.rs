@@ -12,59 +12,12 @@ use std::collections::HashSet;
 use ruff_python_ast::{Expr, ExprCall, ExprList, ExprStringLiteral, ExprTuple, Operator};
 use ruff_text_size::{Ranged, TextRange};
 
-use super::super::trojan_horse::Site;
-use super::entity::{
-    typing_style, Active, Entity, Project, BUDGET, BUILDERS, MAX_BINDINGS, MAX_DEPTH,
-};
-use super::facts::{Binding, ScopeId};
-use super::forms::{items, last, literal, TYPE_FORMS};
-use crate::module::Module;
+use super::entity::{typing_style, Active, Entity, Project, MAX_BINDINGS, MAX_DEPTH};
+use super::facts::{Binding, ScopeId, TEXT};
+use super::forms::{items, literal, type_subscription, TYPE_FORMS};
 use crate::parse::Unread;
-use crate::survey::hazards_names::DYNAMIC;
-
-/// The sites of the closed-binding rule for each module of the scan, in the order of `modules`.
-pub(in crate::survey) fn annotation_sites(modules: &[Module]) -> Vec<Vec<Site>> {
-    let project = Project::of(modules);
-    (0..modules.len()).map(|at| project.sites(at)).collect()
-}
 
 impl<'a> Project<'a> {
-    /// The sites of the rule for one module; none when it evaluates no annotation.
-    fn sites(&self, at: usize) -> Vec<Site> {
-        let facts = self.facts(at);
-        if !facts.evaluates {
-            return Vec::new();
-        }
-        self.budget.set(BUDGET);
-        let mut found = Vec::new();
-        let mut add = |detail: &str, range: TextRange| {
-            found.push(Site::plain(DYNAMIC, detail, range));
-        };
-        facts
-            .reaches
-            .iter()
-            .for_each(|r| add("__annotations__", *r));
-        for call in &facts.calls {
-            let real = match self.path(call.callee, at, call.scope, 0, &mut Vec::new()) {
-                Entity::Standard(path) => path.rsplit('.').next().unwrap_or_default().to_owned(),
-                _ => String::new(),
-            };
-            let spelled = last(call.callee).unwrap_or_default();
-            let named = |name: &str| real == name || spelled == name;
-            let read = call.literal_ref && spelled == "ForwardRef";
-            if BUILDERS.iter().any(|b| named(b)) || (named("ForwardRef") && !read) {
-                add("annotation builder", call.range);
-            }
-        }
-        let mut ranges = Vec::new();
-        for (expr, scope) in &facts.annotations {
-            self.dynamic(expr, (at, *scope), &mut ranges, 0, &mut Vec::new());
-        }
-        ranges.iter().for_each(|r| add("annotation value", *r));
-        found.sort_by_key(|site| site.range.start());
-        found
-    }
-
     /// Push the ranges of the parts of an annotation that are not clean.
     pub(super) fn dynamic(
         &self,
@@ -92,6 +45,11 @@ impl<'a> Project<'a> {
             }
             Expr::Subscript(node) => {
                 self.dynamic(&node.value, at, found, depth, active);
+                // `os.environ['X']` is data: only a type form subscripts to a type.
+                let base = self.path(&node.value, at.0, at.1, depth, active);
+                if matches!(base, Entity::Standard(path) if !type_subscription(&path)) {
+                    found.push(node.range());
+                }
                 let parts = if literal(&node.value) {
                     Vec::new()
                 } else {
@@ -137,7 +95,9 @@ impl<'a> Project<'a> {
         active: &mut Active,
     ) -> bool {
         match crate::parse::expression(text.value.to_str()) {
-            Ok(code) if depth < MAX_DEPTH => self.clean(&code, at, depth + 1, active),
+            Ok(code) if depth < MAX_DEPTH => {
+                self.clean(&code, (at.0, at.1 | TEXT), depth + 1, active)
+            }
             Ok(_) | Err(Unread::Bound) => false,
             Err(Unread::Syntax) => true,
         }
@@ -260,7 +220,7 @@ impl<'a> Project<'a> {
             Binding::Inert => Entity::Clean,
             Binding::Import(module, None) => self.module(module),
             Binding::Import(module, Some(name)) => self.member(module, name, depth, active),
-            Binding::Unknown => Entity::Unknown,
+            Binding::Unknown | Binding::Receiver => Entity::Unknown,
         }
     }
 
@@ -300,13 +260,11 @@ impl<'a> Project<'a> {
         active: &mut Active,
     ) -> Entity {
         let full = format!("{module}.{name}");
+        if self.written(module, name) {
+            return Entity::Unknown;
+        }
         if typing_style(module) {
-            let written = self.written(module, name);
-            return if written {
-                Entity::Unknown
-            } else {
-                Entity::Standard(full)
-            };
+            return Entity::Standard(full);
         }
         if let sub @ Entity::Module(_) = self.module(&full) {
             return sub;
@@ -360,13 +318,23 @@ impl<'a> Project<'a> {
             return Entity::Unknown;
         }
         let scope = &facts.scopes[body];
-        let own = scope.names.get(attr).into_iter().flatten();
-        let stored = facts.stores.get(attr).into_iter().flatten();
-        let bound: Vec<&Binding<'a>> = own.chain(stored).collect();
+        let own = scope
+            .names
+            .get(attr)
+            .into_iter()
+            .flatten()
+            .map(|b| (body, b));
+        let stored = facts
+            .stores
+            .get(attr)
+            .into_iter()
+            .flatten()
+            .map(|(s, b)| (*s, b));
+        let bound: Vec<(ScopeId, &Binding<'a>)> = own.chain(stored).collect();
         if !bound.is_empty() {
             let found = bound
                 .into_iter()
-                .map(|b| self.binding(m, body, b, depth, active));
+                .map(|(at, b)| self.binding(m, at, b, depth, active));
             return self.merge_all(found.collect::<Vec<_>>().into_iter());
         }
         let Some(class) = scope.class else {
