@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A reserved name that is only tested is data (AD-1290, #2196). `tests/test_collector_false_pass_python_reserved_text.py`
+//! A reserved name that is only tested is data (AD-1320, #2196). `tests/test_collector_false_pass_python_reserved_text.py`
 //! runs the escaping forms under CPython.
 
 use super::super::split;
@@ -119,4 +119,75 @@ fn a_bound_display_that_another_module_reads_keeps_the_site() {
     // Control: another module that reads another name leaves the display inert.
     let found = sites(&[rules, "from app.m0 import f\n"]);
     assert!(!found.iter().any(|(at, _)| *at == 0), "{found:?}");
+}
+
+#[test]
+fn a_scan_that_defines_an_equality_hook_has_no_inert_text() {
+    let test = "def f(n):\n    return n == \"__globals__\" or n in {\"__import__\"}\n";
+    assert_eq!(sites(&[test]), Vec::new());
+    for hook in [
+        "class K:\n    def __eq__(self, other):\n        return other\n",
+        "class K:\n    def __ne__(self, other):\n        return other\n",
+        "class K:\n    __eq__ = lambda self, other: other\n",
+        "K.__eq__ = lambda self, other: other\n",
+        "type('K', (), {'__eq__': lambda self, other: other})\n",
+        "setattr(K, '__ne__', lambda self, other: other)\n",
+    ] {
+        let found = sites(&[test, hook]);
+        assert!(found.iter().any(|(at, _)| *at == 0), "{hook}: {found:?}");
+    }
+}
+
+#[test]
+fn a_set_test_needs_a_hash_beside_the_equality_hook() {
+    let sets = "def f(n):\n    return n in {\"__globals__\"}\n";
+    let seq = "def f(n):\n    return n in (\"__globals__\",)\n";
+    let eq = "def f(n):\n    return n == \"__globals__\"\n";
+    let eq_only = "class K:\n    def __eq__(self, other):\n        return other\n";
+    // `__eq__` alone makes the class unhashable: a set test never reaches it.
+    assert!(!sites(&[sets, eq_only]).iter().any(|(at, _)| *at == 0));
+    for test in [seq, eq] {
+        assert!(
+            sites(&[test, eq_only]).iter().any(|(at, _)| *at == 0),
+            "{test}"
+        );
+    }
+    for hook in [
+        "class K:\n    def __eq__(self, other):\n        return other\n\n    def __hash__(self):\n        return 1\n",
+        "class K:\n    __hash__ = hash\n    __eq__ = lambda self, other: other\n",
+        "K.__eq__ = lambda self, other: other\n",
+        "type('K', (), {'__eq__': lambda self, other: other, '__hash__': hash})\n",
+    ] {
+        assert!(sites(&[sets, hook]).iter().any(|(at, _)| *at == 0), "{hook}");
+    }
+}
+
+#[test]
+fn an_exact_str_has_no_hook_that_runs_with_the_literal() {
+    let hook = "class K:\n    def __eq__(self, other):\n        return other\n\n    def __hash__(self):\n        return 1\n";
+    for guarded in [
+        "def f(n):\n    return type(n) is str and n in {\"__globals__\", \"__import__\"}\n",
+        "def f(n):\n    return type(n) == str and n in (\"__globals__\",)\n",
+        "def f(n):\n    return type(n) is str and n == \"__import__\"\n",
+        "def f(n, m):\n    return m and type(n) is str and n in [\"__code__\"]\n",
+    ] {
+        assert!(
+            !sites(&[guarded, hook]).iter().any(|(at, _)| *at == 0),
+            "{guarded}"
+        );
+    }
+    // The proof is for the name on the left, in an `and` after it: nothing else.
+    for open in [
+        "def f(n):\n    return n in {\"__globals__\"}\n",
+        "def f(n, m):\n    return type(n) is str and m in {\"__globals__\"}\n",
+        "def f(n):\n    return type(n) is str or n in {\"__globals__\"}\n",
+        "def f(n):\n    return n in {\"__globals__\"} and type(n) is str\n",
+        "def f(n):\n    return isinstance(n, str) and n in {\"__globals__\"}\n",
+        "def f(n):\n    return type(n) is str and (n, 1) == (\"__globals__\", 1)\n",
+    ] {
+        assert!(
+            sites(&[open, hook]).iter().any(|(at, _)| *at == 0),
+            "{open}"
+        );
+    }
 }
