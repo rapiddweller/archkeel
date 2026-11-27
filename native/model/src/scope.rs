@@ -105,7 +105,7 @@ impl<'id, 'm> Scope<'id, 'm> {
         })
     }
 
-    /// Every cause that holds `rule`, the first one first (AD-1290). Empty when the scope of the rule is complete.
+    /// Every cause that holds `rule`, the first one first (AD-1330). Empty when the scope of the rule is complete.
     pub fn causes(&self, rule: &Rule) -> Vec<Reason> {
         crate::scope_order::rule_causes(self.model, rule)
     }

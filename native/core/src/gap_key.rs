@@ -40,12 +40,12 @@ pub(crate) struct Gaps {
     /// The keys of each rule row without a decision, so that a row can be called accepted only
     /// when all its keys are (AD-546). These are the keys of the first cause, the one that the row shows.
     pub(crate) by_rule: BTreeMap<String, Vec<Key>>,
-    /// The keys that come from a cause beyond the first of a rule, with their counts (AD-1290). A baseline of
+    /// The keys that come from a cause beyond the first of a rule, with their counts (AD-1330). A baseline of
     /// schema 1.4.0 holds the first cause only, so the compare leaves these out for such a file.
     pub(crate) beyond: BTreeMap<Key, u64>,
     /// The keys whose reason is the text that a collector wrote. A collector can reword that text with no
     /// change of the code, so the baseline matches such a key by kind and subject when no entry has its
-    /// exact text (AD-1290). The reason of any other key is typed and is matched exactly.
+    /// exact text (AD-1330). The reason of any other key is typed and is matched exactly.
     pub(crate) reworded: BTreeSet<Key>,
     pub(crate) unacceptable: Vec<String>,
 }
@@ -108,7 +108,7 @@ pub(crate) fn of_run(
 
 /// The causes of an UNKNOWN rule beyond the one that its row shows. A rule can have several causes; the row
 /// names the first, so the key of a rule would move when the first cause is resolved and the next one shows.
-/// The baseline keys every cause instead (AD-1290). A rule whose first cause is not the reason of its row
+/// The baseline keys every cause instead (AD-1330). A rule whose first cause is not the reason of its row
 /// (a named row, a mounted root) adds nothing.
 fn other_causes<'a>(
     ruling: &'a Ruling,

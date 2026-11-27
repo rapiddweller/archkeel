@@ -235,7 +235,7 @@ impl Engine {
         derived.models().ok().map(|models| models.root().graph())
     }
 
-    /// The model of each contract of the tree, when the run derived models (AD-1290: the baseline keys read them).
+    /// The model of each contract of the tree, when the run derived models (AD-1330: the baseline keys read them).
     pub(crate) fn tree(&self) -> Option<&ModelTree> {
         self.derived.as_ref()?.models().ok()
     }

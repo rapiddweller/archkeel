@@ -131,7 +131,7 @@ record!(
         /// The checked accepted UNKNOWN entries.
         unknowns: Option<Vec<AcceptedUnknown>>,
         /// True for schema 1.5.0: the entries name every cause of an UNKNOWN rule. A file of schema 1.4.0
-        /// names the first cause only, so the compare leaves the other causes of a rule out (AD-1290).
+        /// names the first cause only, so the compare leaves the other causes of a rule out (AD-1330).
         all_causes: bool,
     }
 );

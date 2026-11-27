@@ -407,7 +407,7 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
         })
         .collect();
     // A file of schema 1.4.0 names the first cause of each rule only: the causes beyond it are not compared,
-    // so a file that a build wrote stays current for the same source (AD-1290).
+    // so a file that a build wrote stays current for the same source (AD-1330).
     let held = |key: &Key, count: u64| -> u64 {
         match file.all_causes() {
             true => count,
@@ -459,7 +459,7 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
         .extend(gone.iter().map(|(key, run, file)| entry(key, *run, *file)));
 }
 
-/// A collector gap whose text changed and whose kind, subject and count did not is no drift (AD-1290).
+/// A collector gap whose text changed and whose kind, subject and count did not is no drift (AD-1330).
 /// Each surplus of the run is paired with a missing entry of the file of the same kind and subject, one
 /// item for one item. What no pair absorbs stays new or gone. Only a key whose reason is the text of
 /// a collector is paired; a typed reason is exact.

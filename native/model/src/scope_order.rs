@@ -114,7 +114,7 @@ pub(crate) fn rule(model: &Model, rule: &Rule) -> Result<(), Reason> {
 /// Every source that holds `rule`, in the order of `RULE_ORDER`, then the part that the core cannot read. The
 /// first one is the reason of the rule (`rule`). The others are causes that the rule has as well: a baseline
 /// keys them all, so the key of a rule does not move when the first cause is resolved and the next one is
-/// shown (AD-1290). Empty when `rule` returns `Ok`.
+/// shown (AD-1330). Empty when `rule` returns `Ok`.
 pub(crate) fn rule_causes(model: &Model, rule: &Rule) -> Vec<Reason> {
     let subject = Subject::Rule(rule);
     let mut carry = Carry::default();

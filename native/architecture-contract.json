@@ -2704,7 +2704,7 @@
       "requires": [
         {
           "component": "model",
-          "rationale": "Derive the model of the run and ask it for each section (AD-363). The baseline reads every cause of a rule from the models of the tree (AD-1290).",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363). The baseline reads every cause of a rule from the models of the tree (AD-1330).",
           "through": [
             "native.archkeel_model:Graph",
             "native.archkeel_model:Hygiene",

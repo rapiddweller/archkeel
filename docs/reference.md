@@ -251,7 +251,7 @@ review the file, and keep it in the repository.
 The file lists each accepted UNKNOWN as `kind`, `subject` and `reason`, with a `count` above 1.
 A rule row has the rule id as subject, so a new rule that is UNKNOWN for an accepted cause is a new
 entry: write the file again and review the diff. A rule can have several causes, and the file lists
-all of them (schema 1.5.0, [AD-1290](architecture/decisions/ad-1290-a-baseline-keys-every-cause-of-a-rule-and-matches-a-reworded-collector-gap.md)):
+all of them (schema 1.5.0, [AD-1330](architecture/decisions/ad-1330-a-baseline-keys-every-cause-of-a-rule-and-matches-a-reworded-collector-gap.md)):
 resolving the first cause is a `gone` entry, never a new one. A file of schema 1.4.0 lists the first
 cause only and is compared on that cause; write it again once to get the full list. A collector gap
 whose text changed, with the same kind, subject and count, is matched to its entry and is no difference.

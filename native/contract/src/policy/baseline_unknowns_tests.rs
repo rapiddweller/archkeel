@@ -140,7 +140,7 @@ fn a_run_baseline_is_sorted_and_has_no_zero_count() {
 
 #[test]
 fn schema_1_5_0_names_every_cause_and_a_run_writes_it_while_1_4_0_keeps_its_form() {
-    // AD-1290: a file of 1.4.0 names the first cause of a rule only; a file of 1.5.0 names them all.
+    // AD-1330: a file of 1.4.0 names the first cause of a rule only; a file of 1.5.0 names them all.
     let mut value = document(json!([entry("a", "s", "r")]));
     let legacy = parse(&value).unwrap();
     assert!(!legacy.all_causes());
