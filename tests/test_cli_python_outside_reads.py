@@ -216,25 +216,22 @@ def test_a_use_that_can_hand_out_a_module_keeps_the_hold(
 
 
 # Each script is in the closed grammar: `import` of `sys` and `importlib.*`, a read of a text, a
-# path read, a test of `sys.modules`, `print` of a read. No path is written, nothing is defined.
+# test of `sys.modules`, `find_spec` of a top-level name against `None`, `print` of a read. No path
+# is written, nothing is defined and no package is imported.
 CLOSED = {
     "reads": (
-        "import importlib.resources\nimport importlib.util\nimport sys\n\n"
+        "import importlib.metadata\nimport importlib.util\nimport sys\n\n"
         'assert importlib.util.find_spec("zzz_never_installed") is None\n'
         'assert "zzz_never_installed" not in sys.modules\n'
-        'package = importlib.resources.files("app")\n'
-        'assert package.joinpath("__init__.py").is_file()\n'
-        'print(importlib.resources.files("app").joinpath("service.py").read_text())\n'
-        'print((importlib.resources.files("app") / "service.py").read_bytes())\n'
+        'print("app" in sys.modules, importlib.metadata.version("pip"))\n'
+        'if "app" in sys.modules or not "app" in sys.modules:\n    print("done")\n'
     ),
     "plain f-string is the text": (
-        "import importlib.resources\n"
-        'print(f"app", importlib.resources.files(f"app").joinpath("__init__.py").read_text())\n'
+        'import sys\n\nprint(f"app", f"app" in sys.modules)\nname = "x"\nprint(name)\n'
     ),
     "from import": (
-        "from importlib.resources import files\n"
-        'print(files("app").joinpath("service.py").read_text())\n'
-        'if files("app").joinpath("service.py").exists():\n    print("service")\n'
+        "from importlib.util import find_spec\nfrom importlib.metadata import version\n"
+        'print(find_spec("zzz_never_installed") is None, version("pip"))\n'
     ),
 }
 
@@ -258,9 +255,13 @@ OUTSIDE = {
     "an alias": CLOSED["reads"].replace("import sys", "import sys as system"),
     "a call of another function": CLOSED["reads"] + 'print(len("x"))\n',
     "a keyword of print": CLOSED["reads"] + 'print("x", end="")\n',
-    "a name used twice": CLOSED["reads"] + 'package = importlib.resources.files("app")\n',
-    "a name passed on": CLOSED["reads"] + "print(len(package))\n",
-    "a test of an object": CLOSED["reads"] + "assert package in sys.modules\n",
+    "a name used twice": CLOSED["reads"] + 'name = "a"\nname = "b"\n',
+    "a name passed on": CLOSED["reads"] + 'name = "a"\nprint(len(name))\n',
+    "a test of an object": CLOSED["reads"] + 'name = "a"\nassert name in sys.modules\n',
+    "files of a package of the scan": CLOSED["reads"]
+    + 'import importlib.resources\nprint(importlib.resources.files("app"))\n',
+    "find_spec of a submodule": CLOSED["reads"]
+    + 'assert importlib.util.find_spec("app.service") is None\n',
 }
 
 
@@ -316,6 +317,21 @@ RUNS_PACKAGE_CODE = {
         'print("app.service")\n'
     ),
 }
+
+# A package beside the script shadows the package of the scan: `files("app")` runs its initializer.
+SHADOW = {"scripts/app/__init__.py": PAYLOAD["scripts/payload/__init__.py"]}
+SHADOWED = (
+    "from importlib.resources import files\n"
+    'print(files("app").joinpath("app.service").read_text())\n'
+)
+
+
+def test_files_of_a_name_that_a_package_beside_the_script_shadows_keeps_the_hold(
+    release_core: Path, tmp_path: Path
+) -> None:
+    assert check(release_core, tmp_path, SHADOWED, SHADOW)["INTERFACE"] == "UNKNOWN"
+    run(tmp_path, SHADOWED)
+    assert "hooked" in (tmp_path / "src/app/service.py").read_text()
 
 
 @pytest.mark.parametrize("name", sorted(RUNS_PACKAGE_CODE))

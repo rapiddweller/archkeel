@@ -187,10 +187,7 @@ pub(super) fn written(
         })
         .collect();
     // #1963, AD-1211: a file in the closed grammar of a read-only script holds nothing.
-    let closed: Vec<bool> = outside
-        .iter()
-        .map(|module| grammar::closed(module, &names))
-        .collect();
+    let closed: Vec<bool> = outside.iter().map(grammar::closed).collect();
     for (index, site) in &hazards {
         if closed[*index] {
             continue;

@@ -15,8 +15,7 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    CmpOp, ElifElseClause, Expr, ExprCall, ExprCompare, Identifier, Keyword, Operator, Stmt,
-    UnaryOp,
+    CmpOp, ElifElseClause, Expr, ExprCall, ExprCompare, Identifier, Keyword, Stmt, UnaryOp,
 };
 use ruff_text_size::Ranged;
 
@@ -178,16 +177,13 @@ pub(super) fn api_calls(module: &Module, names: &HashSet<String>) -> Vec<ApiCall
 enum Value {
     /// A text, a number, a bool or `None`: no method of it runs code of the file.
     Plain,
-    /// The path that `importlib.resources.files(text)` gives.
-    Path,
     /// The spec that `importlib.util.find_spec(text)` gives; only a test against `None` uses it.
     Spec,
 }
 
 /// The names that `from importlib... import` may bind, by module.
-const FROM_IMPORTS: [(&str, &str); 3] = [
+const FROM_IMPORTS: [(&str, &str); 2] = [
     ("importlib.metadata", "version"),
-    ("importlib.resources", "files"),
     ("importlib.util", "find_spec"),
 ];
 
@@ -200,46 +196,31 @@ const IMPORTS: [&str; 5] = [
     "importlib.util",
 ];
 
-/// The calls on a path that give a text or a bool.
-const PATH_READS: [&str; 5] = ["read_text", "read_bytes", "is_file", "is_dir", "exists"];
-
 /// The names that no assignment may bind.
-const RESERVED: [&str; 6] = ["print", "sys", "importlib", "version", "files", "find_spec"];
+const RESERVED: [&str; 5] = ["print", "sys", "importlib", "version", "find_spec"];
 
-struct Grammar<'n> {
-    /// The modules of the scan: the only packages that `files` may import.
-    names: &'n HashSet<String>,
+#[derive(Default)]
+struct Grammar {
     bound: HashMap<String, Value>,
     from: HashSet<String>,
 }
 
 /// True when the whole file is in the closed grammar of a read-only script (#1963, AD-1211):
 /// `import` of `sys` and of `importlib.metadata`, `importlib.resources` and `importlib.util`
-/// without an alias, `from` of `version`, `files` and `find_spec`, a name that is assigned once
-/// from a read, `print` of texts and reads to the standard output, `assert` and `if` over a test
-/// of a read, and nothing else. A read is `version(text)`, `files(text)` with `.joinpath(text)`
-/// or `/ text` and a path read, `text in sys.modules`, and `find_spec(text) is None`. Each value
-/// that reaches a call is a text written in the source, so no object runs its own code. The file
-/// writes no path, defines nothing and calls nothing else: it cannot write a binding of the scan
-/// or change a file of it.
-pub(super) fn closed(module: &Module, names: &HashSet<String>) -> bool {
-    let mut grammar = Grammar {
-        names,
-        bound: HashMap::new(),
-        from: HashSet::new(),
-    };
+/// without an alias, `from` of `version` and `find_spec`, a name that is assigned once from a
+/// read, `print` of texts and reads to the standard output, `assert` and `if` over a test of a
+/// read, and nothing else. A read is `version(text)`, `text in sys.modules` and
+/// `find_spec(top_level_text) is None`. Each value that reaches a call is a text written in the
+/// source, so no object runs its own code, and nothing imports a package: `files(text)` and
+/// `find_spec("a.b")` do, and a package beside the script can shadow the name. The file writes no
+/// path, defines nothing and calls nothing else: it cannot write a binding of the scan or change a
+/// file of it.
+pub(super) fn closed(module: &Module) -> bool {
+    let mut grammar = Grammar::default();
     module.tree.body.iter().all(|stmt| grammar.stmt(stmt))
 }
 
-/// `joinpath(text)` keeps a path; a read gives a text.
-fn path_call(attr: &str) -> Option<Value> {
-    match attr {
-        "joinpath" => Some(Value::Path),
-        _ => PATH_READS.contains(&attr).then_some(Value::Plain),
-    }
-}
-
-impl Grammar<'_> {
+impl Grammar {
     fn stmt(&mut self, stmt: &Stmt) -> bool {
         match stmt {
             Stmt::Pass(_) => true,
@@ -288,14 +269,14 @@ impl Grammar<'_> {
     /// `print(...)` or a bare read.
     fn statement_expr(&self, expr: &Expr) -> bool {
         let Expr::Call(call) = expr else {
-            return matches!(self.value(expr), Some(Value::Plain | Value::Path));
+            return matches!(self.value(expr), Some(Value::Plain));
         };
         let printed = matches!(&*call.func, Expr::Name(n) if n.id.as_str() == "print");
         if !printed {
-            return matches!(self.value(expr), Some(Value::Plain | Value::Path));
+            return matches!(self.value(expr), Some(Value::Plain));
         }
         let keywords: &[Keyword] = &call.arguments.keywords;
-        let shown = |a: &Expr| matches!(self.value(a), Some(Value::Plain | Value::Path));
+        let shown = |a: &Expr| matches!(self.value(a), Some(Value::Plain));
         keywords.is_empty() && call.arguments.args.iter().all(shown)
     }
 
@@ -306,7 +287,7 @@ impl Grammar<'_> {
         let name = target.id.to_string();
         let free = !RESERVED.contains(&String::as_str(&name)) && !self.bound.contains_key(&name);
         match self.value(value) {
-            Some(kind @ (Value::Plain | Value::Path)) if free => {
+            Some(kind @ Value::Plain) if free => {
                 self.bound.insert(name, kind);
                 true
             }
@@ -321,10 +302,6 @@ impl Grammar<'_> {
             }
             Expr::StringLiteral(_) | Expr::FString(_) => text_of(expr).map(|_| Value::Plain),
             Expr::Name(name) => self.bound.get(name.id.as_str()).copied(),
-            Expr::BinOp(node) if matches!(node.op, Operator::Div) => {
-                let path = self.value(&node.left) == Some(Value::Path);
-                (path && text_of(&node.right).is_some()).then_some(Value::Path)
-            }
             Expr::UnaryOp(node) if matches!(node.op, UnaryOp::Not) => {
                 (self.value(&node.operand) == Some(Value::Plain)).then_some(Value::Plain)
             }
@@ -358,50 +335,32 @@ impl Grammar<'_> {
         (tested || spec).then_some(Value::Plain)
     }
 
-    /// `files(text)` imports the package of the text and `find_spec("a.b")` imports its parent:
-    /// the initializer of a package outside the scan runs code that no site shows
-    /// (`files("payload")` with `payload/__init__.py` that writes a scanned file). Only the
-    /// modules of the scan, whose code is read anyway, and a top-level name for `find_spec` are
-    /// proven.
-    fn runs_package_code(&self, name: &str, call: &ExprCall) -> bool {
+    /// `find_spec("a.b")` imports the parent `a`, and a package beside the script can shadow it
+    /// (`scripts/app/__init__.py`): only a top-level name is proven. `files(text)` imports the
+    /// package of the text for the same reason, so it is no part of the grammar (Codex #2144).
+    fn imports_a_package(name: &str, call: &ExprCall) -> bool {
         let text = call
             .arguments
             .args
             .first()
             .and_then(text_of)
             .unwrap_or_default();
-        let scanned = |text: &str| {
-            self.names
-                .iter()
-                .any(|module| module == text || module.starts_with(&format!("{text}.")))
-        };
-        match name.rsplit('.').next() {
-            Some("files") => !scanned(&text),
-            Some("find_spec") => text.contains('.') && !scanned(&text),
-            _ => false,
-        }
+        name.ends_with("find_spec") && text.contains('.')
     }
 
     fn call(&self, call: &ExprCall) -> Option<Value> {
         if !texts(call) {
             return None;
         }
-        if let Expr::Attribute(node) = &*call.func {
-            if self.value(&node.value) == Some(Value::Path) {
-                return path_call(Identifier::as_str(&node.attr));
-            }
-        }
         let name = chain(&call.func)?;
         let bare = |from: &str| self.from.contains(from) && !name.contains('.');
-        if self.runs_package_code(&name, call) {
+        if Self::imports_a_package(&name, call) {
             return None;
         }
         match String::as_str(&name) {
             "importlib.metadata.version" => Some(Value::Plain),
-            "importlib.resources.files" => Some(Value::Path),
             "importlib.util.find_spec" => Some(Value::Spec),
             _ if bare("version") && name == "version" => Some(Value::Plain),
-            _ if bare("files") && name == "files" => Some(Value::Path),
             _ if bare("find_spec") && name == "find_spec" => Some(Value::Spec),
             _ => None,
         }
