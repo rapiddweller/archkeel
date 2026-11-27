@@ -13,13 +13,15 @@ producer proves no soundness. The Dart import survey was pinned the same way (ed
 
 ## Decision
 
-1. Deleted: the whole-reply equality, its comparator, recorder, allowance table, 14 recordings and
-   digests, `make golden-record`, and the Python tests of that machinery (`test_collector_golden_replies.py`,
-   `golden_*.py`).
+1. Deleted: the whole-reply equality, its comparator, recorder, allowance table, the case list, the two
+   digest files, `RECORDINGS.md`, `make golden-record`, and the Python tests of that machinery
+   (`test_collector_golden_replies.py`, `golden_*.py`).
 2. Deleted: the live byte-equality of the validation table (`records_tests.rs`) and its writer.
 3. Deleted: the Dart `fixture_edges/*.txt` lists and the survey counts of four fixtures.
-4. Kept as input: `h-typescript.json.gz` and `validation.json` (ten tests of the store, model, eval,
-   report and core decode them), `mounted-receipt/interface-plants.json`, the small sources.
+4. Kept as input: every `*.json.gz` recording and `validation.json`. Tests of the store, facts, model,
+   eval, report and core decode them, and two tests walk the whole folder (`construct_golden_tests.rs`,
+   `construct_consistency_tests.rs`). Also kept: `mounted-receipt/interface-plants.json` and the sources.
+   A recording is no longer written again and is not compared with a producer.
 5. Added: `tests/test_collector_native_ts_resolution.py` (9 projects) and
    `native/dart/src/import_survey/import_forms_tests.rs` (2 tests).
 
