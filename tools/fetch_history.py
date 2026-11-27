@@ -4,13 +4,13 @@
 """Fetch the history that a PR job reads after a checkout of depth 1, or fail (AD-1222).
 
 `python tools/fetch_history.py <base-sha> [--whole]` fetches `main`, the base commit and the
-checked-out commit without blobs and without tags, with a growing depth. It stops when the base is an
-ancestor of `HEAD`. Then the merge base of the two is the base commit, exactly: a missing edge of a
-shallow history can only hide an ancestor, never invent one. When no depth shows the ancestry, it
-fetches the whole commit graph, so the merge base is exact. A base that has no merge base with
-`HEAD` or with `origin/main` fails with exit 1: the gate would read a wrong base.
+checked-out commit without blobs and without tags, with a growing depth. It stops when the base
+is an ancestor of `HEAD`. Then the merge base of the two is the base commit, exactly: a missing
+edge of a shallow history can only hide an ancestor, never invent one. When no depth shows the
+ancestry, it fetches the whole commit graph, so the merge base is exact. A base that has no merge
+base with `HEAD` or with `origin/main` fails with exit 1: the gate would read a wrong base.
 `--whole` goes to the whole commit graph at once, for a job whose tests read the history of paths
-(`tests/test_doc_references_exist.py` runs `git log --all --name-only`). It still fetches no blobs.
+(`tests/test_doc_references_exist.py` runs `git log --all --name-only`). It fetches no blobs.
 
 A shallow merge base with `origin/main` can be older than the true one. A diff from it only holds
 more paths, never fewer, so the selection of areas and the new-file check stay safe.
