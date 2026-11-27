@@ -24,6 +24,8 @@ use archkeel_contract::{
     kind_of, Component, ComponentLabel, Contract, CycleLevel, NoComponentCycles, Rule, RuleKind,
 };
 
+use crate::causes::Held;
+use crate::coverage::PairOrigin;
 use crate::graph::Graph;
 use crate::ids::{ComponentId, Table};
 use crate::imports::Resolved;
@@ -440,3 +442,40 @@ const EDGE_FREE: &[RuleKind] = &[
 #[cfg(test)]
 #[path = "pair_gaps_tests.rs"]
 mod tests;
+
+/// Why a gap holds an interface rule (`Reads::Interface`), from its flags.
+pub(crate) fn origin(observed: bool, execution: bool, dispatch: bool) -> PairOrigin {
+    match (observed, execution, dispatch) {
+        (false, _, _) => PairOrigin::UnobservedModule,
+        (true, false, true) => PairOrigin::Dispatch,
+        (true, false, false) => PairOrigin::NotExecutionOnly,
+        (true, true, _) => PairOrigin::UnownedEnd,
+    }
+}
+
+/// The two modules of a gap and its origin.
+pub(crate) fn triple(gap: &PairGap) -> (&str, &str, PairOrigin) {
+    let origin = origin(gap.observed, gap.execution, gap.dispatch);
+    (gap.source.as_str(), gap.target.as_str(), origin)
+}
+
+/// The kept gaps and the named sites that hold a rule, as one reason. An interface rule keeps the
+/// origin of each record (#2086); a source-name rule counts each pair once.
+pub(crate) fn hold<'a>(
+    reading: &Reads<'_>,
+    gaps: impl Iterator<Item = (&'a str, &'a str, PairOrigin)>,
+    named: impl Iterator<Item = (&'a str, &'a str)>,
+) -> Option<Held> {
+    if matches!(reading, Reads::Interface) {
+        let named = named.map(|(source, target)| (source, target, PairOrigin::NamedSite));
+        return Held::with_origins(gaps.chain(named));
+    }
+    let mut seen = std::collections::HashSet::new();
+    let source_names = matches!(reading, Reads::SourceNames(_));
+    let pairs = gaps.map(|(source, target, _)| (source, target));
+    Held::of(
+        pairs
+            .chain(named)
+            .filter(|pair| !source_names || seen.insert(*pair)),
+    )
+}

@@ -157,6 +157,7 @@
         "native.archkeel_facts.vocab:ReferenceContext",
         "native.archkeel_facts.vocab:RelationshipKind",
         "native.archkeel_facts.vocab:ResolutionDimension",
+        "native.archkeel_facts.vocab:RouteWithheld",
         "native.archkeel_facts.vocab:SelectorRole",
         "native.archkeel_facts.vocab:Signal",
         "native.archkeel_facts.vocab:Status",
@@ -556,6 +557,8 @@
         "native.archkeel_model:Import",
         "native.archkeel_model:Incomplete",
         "native.archkeel_model:Input",
+        "native.archkeel_model:InterfaceGap",
+        "native.archkeel_model:InterfaceHold",
         "native.archkeel_model:Judged",
         "native.archkeel_model:Level",
         "native.archkeel_model:Link",
@@ -566,6 +569,7 @@
         "native.archkeel_model:ModuleId",
         "native.archkeel_model:Need",
         "native.archkeel_model:Needs",
+        "native.archkeel_model:PairOrigin",
         "native.archkeel_model:Part",
         "native.archkeel_model:Position",
         "native.archkeel_model:PremiseKind",
@@ -663,6 +667,7 @@
           "through": [
             "native.archkeel_facts.data",
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.vocab:RouteWithheld",
             "native.archkeel_facts:GapFact"
           ]
         }
@@ -671,10 +676,12 @@
         "native.archkeel_model.brand:Brand",
         "native.archkeel_model.causes:Cause",
         "native.archkeel_model.causes:Held",
+        "native.archkeel_model.causes:HeldImport",
         "native.archkeel_model.causes:InterfaceGap",
         "native.archkeel_model.causes:InterfaceHold",
         "native.archkeel_model.causes:Part",
         "native.archkeel_model.coverage:Incomplete",
+        "native.archkeel_model.coverage:PairOrigin",
         "native.archkeel_model.coverage:data_of",
         "native.archkeel_model.coverage:incomplete",
         "native.archkeel_model.gap_class:Class",
@@ -922,6 +929,8 @@
           "component": "model-terms",
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
+            "native.archkeel_model.causes:Held",
+            "native.archkeel_model.coverage:PairOrigin",
             "native.archkeel_model.ids"
           ]
         },
@@ -948,9 +957,11 @@
         "native.archkeel_model.limits:word",
         "native.archkeel_model.pair_gaps:Pairs",
         "native.archkeel_model.pair_gaps:Reads",
+        "native.archkeel_model.pair_gaps:hold",
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.pair_gaps:sides_match",
+        "native.archkeel_model.pair_gaps:triple",
         "native.archkeel_model.roots:Roots",
         "native.archkeel_model.rule_kinds:undecided_rule",
         "native.archkeel_model.selection:Selection",
@@ -2211,8 +2222,11 @@
             "native.archkeel_model:CoverageGap",
             "native.archkeel_model:Decision",
             "native.archkeel_model:Incomplete",
+            "native.archkeel_model:InterfaceGap",
+            "native.archkeel_model:InterfaceHold",
             "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
+            "native.archkeel_model:PairOrigin",
             "native.archkeel_model:PremiseKind",
             "native.archkeel_model:Reason",
             "native.archkeel_model:RunPass",
@@ -2308,6 +2322,13 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.graph"
+          ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the cause that the collector states for a held import (#2086, AD-1210).",
+          "through": [
+            "native.archkeel_facts.vocab:RouteWithheld"
           ]
         }
       ],
