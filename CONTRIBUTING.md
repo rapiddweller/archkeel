@@ -194,6 +194,7 @@ Studio UI contract at `studio/architecture-contract.json`. The tools have no arc
   shared list. Update documents that describe
   the old behaviour. The
   [roadmap](docs/roadmap.md) lists open work only.
+- **ArchKeel is the single point of truth for architecture drift.** An architecture rule goes into `native/architecture-contract.json`, or it becomes an ArchKeel feature. The self-check enforces it. Do not add a custom test, script, ledger, remembered number or CI gate for architecture drift.
 - **Keep the contract true.** A new crate or module in `native/` needs a component in
   `native/architecture-contract.json`, and a new import between components needs a `requires`
   entry with its reason. A new module in `src/archkeel/` belongs to a component of the shell contract.

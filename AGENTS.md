@@ -8,6 +8,7 @@ Guidance for coding agents that change Archkeel. People and agents follow the sa
   verdicts, the violations, the largest UNKNOWN causes, the size of files and the
   import hotspots. Size and hotspots are measured values and never change the exit code
   ([AD-1088](docs/architecture/decisions/ad-1088-make-self-check-prints-the-first-minute-of-a-change-in-40-lines.md)).
+- ArchKeel is the single point of truth for every kind of architecture drift in this repository. An architecture rule goes into `native/architecture-contract.json`, or it becomes an ArchKeel feature. The self-check enforces it. Do not add a custom test, script, ledger, remembered number or CI gate for architecture drift.
 - Keep agent plans, working specs and evidence out of the repository. A final checked story may
   live at `.archkeel/stories/<id>.story.json` under
   [AD-291](docs/architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md).
