@@ -1,6 +1,6 @@
 # AD-1185: A rustc-resolved method call is an edge and closes the other receiver candidates
 
-Status: accepted. Amends AD-806, AD-900 and AD-1136. Step 3 of the trait-dispatch path (#2083).
+Status: accepted. Amends AD-806, AD-900, AD-1136 and AD-1212. Step 3 of the trait-dispatch path (#2083).
 This change can turn a held pair into PASS, and it exposes holds that a named gap masked.
 
 ## Why
@@ -66,5 +66,5 @@ Each is in `tests/test_cli_native_rust_resolved_call*.py` with the real driver a
 ## Not done yet
 
 - A candidate that the callee confirms is still held for the interface; the route of the receiver type is not proven.
-- A path call `T::m(..)` and a call that a macro wrote have no place that the scan reads.
-- The `REQUIRES-COMPLETE` holds are the honest state. A later change can drop the allowed ones.
+- A path call `T::m(..)` or a macro call has no place that the scan reads.
+- The `REQUIRES-COMPLETE` holds are the honest state. Any gap between two scanned modules can be a compiler-only hold (AD-1212).
