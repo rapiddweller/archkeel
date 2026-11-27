@@ -21,6 +21,9 @@ fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
 #[path = "scan_explorer_tests.rs"]
 mod explorer_tests;
 
+#[path = "scan_workers_tests.rs"]
+mod workers;
+
 #[path = "scan_hostile_tests.rs"]
 mod hostile_review;
 
@@ -94,6 +97,7 @@ impl Drop for Scratch {
 }
 
 pub(crate) fn repository(name: &str) -> Scratch {
+    workers::ensure();
     let root = Scratch(
         fs::canonicalize(std::env::temp_dir())
             .unwrap()
