@@ -8,13 +8,13 @@ For an EE or CE gate, follow [docs/migration-4-to-5.md](docs/migration-4-to-5.md
 
 | What | 4.0.1 | 5.0 |
 |---|---|---|
-| Exit code | `validate` exits 0, or 2 for diagnostics (1 only with `--baseline` or `--against`). `report` exits 0 when it observed the repository, also with violations. | `validate` and `report`: PASS 0, FAIL 1, UNKNOWN or refusal 2. UNKNOWN never exits 0. |
+| Exit code | `validate`: PASS 0, FAIL 2. With `--baseline`: known violation 0, new violation 1. `report` exits 0 when it observed the repository, also with violations. | `validate` and `report`: PASS 0, FAIL 1, UNKNOWN or refusal 2. UNKNOWN never exits 0. |
 | `validate` without `archkeel.toml` | Exit 2 with the diagnostic `contract.invalid` ("run archkeel init"). Writes nothing. | Drafts `archkeel.toml` and a contract, then checks. Use `--no-init` or `ARCHKEEL_NO_INIT=1` to write nothing (exit 2). |
 | Command `check` | Available. | Refused: `not_on_this_development_line`, exit 2. |
 | `validate` options | `--against`, `--amendment`, `--write-amendment`, `--accept-new`, `--write-graph`, `--compact-open-decisions`, `--decided-by`, `--rationale` | Refused by name, exit 2. |
 | `report` options | `--only`, `--rule`, `--component`, `--full`, `--input`, `--baseline` | `--baseline` is an unknown argument (exit 1). The others are refused by name (exit 2). |
 | `init` options | `--source`, `--namespace`, `--language`, `--tsconfig`, `--full`, `--force`, `--collector-argv`, `--collector-output-limit-bytes` | Refused (exit 2). Run `init`, then edit `archkeel.toml`. |
-| `--write-baseline` | A flag. It writes the file of `--baseline`. | Takes a file: `--write-baseline FILE`. `--baseline` and `--write-baseline` cannot name the same file. |
+| `--write-baseline` | A flag. It writes the file of `--baseline`; new debt needs `--accept-new`. | Takes a file: `--write-baseline FILE`. `--baseline` and `--write-baseline` cannot name the same file. |
 | Baseline file | Schema 1.0.0 to 1.3.0. | Schema 1.4.0. An older file is read, accepts no UNKNOWN, and its call and typing budgets exit 2 (`baseline.budget_of_older_schema`). |
 | `report` output | Saved `architecture.json`, focused reports. | `--output FILE` writes one `html` (default), `json` or `markdown` file. |
 | `archkeel.toml` | `collector_argv` starts your own collector. | `collector_argv` is refused: the core runs only its own collectors. All other `[scan]` keys stay. New keys: `collector_timeout_seconds`, `bundler`, `exclude_test_sources`, `python`, `import_roots_ambiguous`, `rust_type_reach`, `root`. |
