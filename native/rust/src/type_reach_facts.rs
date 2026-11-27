@@ -35,6 +35,22 @@ pub(crate) struct SelectedFacts {
     pub(crate) column: i64,
 }
 
+/// A method call `x.m()` whose callee the compiler resolved (AD-1185): the place of `m(..)`, and the file that holds
+/// the callee when it is workspace code. The file decides, not a module name: a mapping of names can be wrong
+/// (a binary target has other module names). A plain value, like `SelectedFacts`.
+pub(crate) struct CallFacts {
+    pub(crate) callee_file: Option<String>,
+    /// The call is in a unit of test code: it can only veto.
+    pub(crate) test: bool,
+    /// The files that the type arguments of the call can run (their types, closures and impls).
+    pub(crate) touch: Vec<String>,
+    /// An argument is not fully known: nothing is proven for the call.
+    pub(crate) open: bool,
+    pub(crate) file: String,
+    pub(crate) line: i64,
+    pub(crate) column: i64,
+}
+
 /// What a module, an opaque type or a coroutine holds: ADTs, `dyn` traits and opaque types.
 pub(crate) struct Held {
     pub(crate) adts: Names,
@@ -87,6 +103,8 @@ pub struct Facts {
     pub(crate) impls: Vec<ImplFacts>,
     /// The selected impls of the non-test units.
     pub(crate) selected: Vec<SelectedFacts>,
+    /// The resolved method calls of the non-test units.
+    pub(crate) calls: Vec<CallFacts>,
 }
 
 fn blank<T: Default>() -> T {
@@ -125,6 +143,7 @@ impl Facts {
             adts: blank(),
             impls: blank(),
             selected: blank(),
+            calls: blank(),
         }
     }
 
@@ -174,8 +193,44 @@ impl Facts {
                 self.selected.extend((!test_unit).then_some(site));
                 continue;
             }
+            if v.get("k")?.as_str()? == "call" {
+                self.call(&v, &names, test_unit)?;
+                continue;
+            }
             self.record(&v, &names)?;
         }
+        Some(())
+    }
+
+    /// One resolved method call. A workspace callee is also a selected edge of its caller (AD-1185).
+    fn call(&mut self, v: &Value, names: &[String], test_unit: bool) -> Option<()> {
+        // A call of test code decides no edge, but it can veto: the same place can run another callee (AD-1185).
+        let test_unit = test_unit || v.get("test").and_then(Value::as_bool) == Some(true);
+        let number = |key: &str| v.get(key)?.as_i64();
+        let (file, line, column) = (one(v, "file", names)?, number("line")?, number("col")?);
+        let to = one(v, "to", names);
+        let edge = (!test_unit).then(|| (to, one(v, "callee_file", names)));
+        if let Some((Some(to), Some(impl_file))) = edge {
+            self.selected.push(SelectedFacts {
+                from: one(v, "from", names)?,
+                to,
+                imp: one(v, "callee", names)?,
+                file: file.clone(),
+                impl_file,
+                line,
+                column,
+            });
+        }
+        self.calls.push(CallFacts {
+            callee_file: one(v, "callee_file", names),
+            test: test_unit,
+            touch: many(v, "touch", names).into_iter().collect(),
+            // `open` names the first type that made an argument unknown, or is `null`.
+            open: v.get("open").is_none_or(|why| !why.is_null()),
+            file,
+            line,
+            column,
+        });
         Some(())
     }
 

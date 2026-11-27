@@ -26,6 +26,8 @@ struct Walk<'a, 'tcx> {
     generic: bool,
     /// What this body mentions: the hidden types of its future when it is a coroutine.
     hidden: Hidden,
+    /// Each call of the body with its span: a resolved method call counts the calls of its receiver (AD-1185).
+    calls: Vec<(rustc_span::Span, ty::Ty<'tcx>)>,
 }
 
 fn type_params(tcx: TyCtxt<'_>, d: DefId) -> usize {
@@ -287,11 +289,13 @@ impl<'a, 'tcx> Visitor<'tcx> for Walk<'a, 'tcx> {
 
     fn visit_terminator(&mut self, t: &Terminator<'tcx>, l: Location) {
         match &t.kind {
-            TerminatorKind::Call { func, .. } => {
+            TerminatorKind::Call { func, fn_span, .. } => {
                 let fty = func.ty(&self.body.local_decls, self.tcx);
                 self.call(fty);
                 let at = (self.root, self.module);
                 crate::selected::eq_site(self.st, self.tcx, at, fty, t.source_info.span);
+                let spans = (t.source_info.span, *fn_span);
+                crate::resolved::method_site(self.st, self.tcx, at, fty, spans, &self.calls);
             }
             // The glue of a drop runs the destructors of the type, also of a generic ADT.
             TerminatorKind::Drop { place, .. } => {
@@ -351,6 +355,17 @@ pub(crate) fn visit<'tcx>(st: &mut State, tcx: TyCtxt<'tcx>, d: LocalDefId, body
             dyns: BTreeSet::new(),
             opaques: BTreeSet::new(),
         },
+        calls: body
+            .basic_blocks
+            .iter()
+            .filter_map(|block| match &block.terminator().kind {
+                TerminatorKind::Call { func, .. } => Some((
+                    block.terminator().source_info.span,
+                    func.ty(&body.local_decls, tcx),
+                )),
+                _ => None,
+            })
+            .collect(),
     };
     w.visit_body(body);
     for l in body.args_iter() {

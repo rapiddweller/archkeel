@@ -16,7 +16,7 @@ use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::{sym, FileName, Span};
 
 /// The module of the definition: the nearest `mod` above it, the crate root included.
-fn module_of(tcx: TyCtxt<'_>, d: DefId) -> DefId {
+pub(crate) fn module_of(tcx: TyCtxt<'_>, d: DefId) -> DefId {
     let mut at = d;
     while tcx.def_kind(at) != DefKind::Mod {
         at = tcx.parent(at);

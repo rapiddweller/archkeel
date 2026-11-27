@@ -19,11 +19,13 @@ extern crate rustc_span;
 
 mod body;
 mod bounds;
+mod holders;
 mod items;
 mod json;
 mod names;
 mod out;
 mod reach;
+mod resolved;
 mod selected;
 mod state;
 

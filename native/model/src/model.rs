@@ -141,11 +141,11 @@ impl Model {
         self.pairs.kept.len()
     }
 
-    /// The module pairs `(source, target)` of the kept and the dropped pair gaps that only the
-    /// execution of an impl explains. A compiler fact can resolve such a gap into an edge (AD-1136).
-    pub fn execution_pair_gaps(&self) -> impl Iterator<Item = (&str, &str)> {
+    /// The module pairs `(source, target)` of the kept and the dropped pair gaps between two scanned modules.
+    /// A compiler fact can resolve such a gap into an edge: a selected impl (AD-1136) or a call (AD-1185).
+    pub fn resolvable_pair_gaps(&self) -> impl Iterator<Item = (&str, &str)> {
         let gaps = self.pairs.kept.iter().chain(&self.pairs.dropped);
-        gaps.filter(|gap| gap.execution)
+        gaps.filter(|gap| gap.observed)
             .map(|gap| (String::as_str(&gap.source), String::as_str(&gap.target)))
     }
 

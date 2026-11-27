@@ -63,6 +63,38 @@ pub(crate) struct Selected {
     pub(crate) column: u32,
 }
 
+/// The impls of the workspace by self type, as the ids of the files that hold them (AD-1185).
+#[derive(Default)]
+pub(crate) struct ImplIndex {
+    pub(crate) by_adt: HashMap<DefId, BTreeSet<u32>>,
+    pub(crate) blanket: BTreeSet<u32>,
+    pub(crate) other: BTreeSet<u32>,
+    /// The statics and constants of the library by file: a function can read a callback that no signature names.
+    pub(crate) statics: HashMap<u32, Vec<DefId>>,
+}
+
+/// One method call `x.m()` that the compiler resolved to one function (AD-1185).
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Resolved {
+    /// The module of the body that makes the call.
+    pub(crate) from: u32,
+    /// The module of the callee, when the callee is workspace code.
+    pub(crate) to: Option<u32>,
+    /// The compiler path of the callee.
+    pub(crate) callee: u32,
+    /// The file of the call, and the file that holds the callee (workspace code).
+    pub(crate) file: u32,
+    pub(crate) callee_file: Option<u32>,
+    /// The files that the type arguments of the call can run (their types, closures and impls), and whether an
+    /// argument is not fully known. A candidate in such a file, or any candidate when open, is not excluded.
+    pub(crate) touch: BTreeSet<u32>,
+    /// The first type that made an argument unknown, when one did.
+    pub(crate) open: Option<u32>,
+    /// The line (1-based) and the column (0-based) of `m(..)`.
+    pub(crate) line: u32,
+    pub(crate) column: u32,
+}
+
 /// The types that flow into a generic function: ADTs, and the `dyn` traits of its type arguments
 /// (`show::<Box<dyn Debug>>`): the instance can call a method of any implementer.
 #[derive(Default)]
@@ -102,6 +134,10 @@ pub(crate) struct State {
     pub(crate) opaque_defs: HashSet<DefId>,
     /// The calls of `PartialEq::eq` with a selected workspace impl.
     pub(crate) selected: BTreeSet<Selected>,
+    /// The method calls with a resolved callee.
+    pub(crate) calls: BTreeSet<Resolved>,
+    /// The impl index, built at the first resolved call.
+    pub(crate) impls: Option<ImplIndex>,
     pub(crate) workspace_defs: HashMap<DefId, bool>,
     /// The canonical workspace root, with a closing slash.
     pub(crate) root: String,
@@ -124,6 +160,8 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
         adt_fields: BTreeMap::new(),
         opaque_defs: HashSet::new(),
         selected: BTreeSet::new(),
+        calls: BTreeSet::new(),
+        impls: None,
         workspace_defs: HashMap::new(),
         root: String::new(),
         registry: String::new(),

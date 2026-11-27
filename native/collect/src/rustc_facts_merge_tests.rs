@@ -52,3 +52,22 @@ fn a_selected_call_of_a_test_unit_is_not_merged_into_the_library() {
         "{records:?}"
     );
 }
+
+const CALL: &str = "{\"k\":\"call\",\"from\":0,\"to\":null,\"callee\":2,\"file\":3,\"callee_file\":null,\"line\":7,\"col\":28}";
+
+#[test]
+fn a_resolved_call_of_a_test_unit_stays_in_the_merge_marked_as_test() {
+    let lib = raw(4, &[]);
+    let test = raw(4, &[CALL]);
+    let (_, records) = load(&merge(&lib, &[&test]).unwrap()).unwrap();
+    let [record] = records.as_slice() else {
+        return assert_eq!(records.len(), 1);
+    };
+    assert!(record.contains("\"test\":true"), "{record}");
+    assert!(record.contains("\"col\":28"), "{record}");
+    let own = load(&merge(&raw(4, &[CALL]), &[]).unwrap()).unwrap().1;
+    assert!(
+        !own[0].contains("\"test\""),
+        "the library unit keeps its call as it is"
+    );
+}

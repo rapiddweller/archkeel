@@ -81,7 +81,7 @@ pub(crate) fn scan(tcx: TyCtxt<'_>, names: &mut Names, ty: Ty<'_>, out: &mut Fou
 }
 
 /// A pointee that says nothing of the value: `()`, `c_void`, an extern type, a number (`*mut u8`).
-fn erases(tcx: TyCtxt<'_>, pointee: Ty<'_>) -> bool {
+pub(crate) fn erases(tcx: TyCtxt<'_>, pointee: Ty<'_>) -> bool {
     match pointee.kind() {
         TyKind::Tuple(items) => items.is_empty(),
         TyKind::Foreign(_) | TyKind::Int(_) | TyKind::Uint(_) => true,
