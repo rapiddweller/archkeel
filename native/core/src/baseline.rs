@@ -428,7 +428,7 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
         .filter(|(_, keys)| {
             keys.iter().all(|key| {
                 file_counts.get(key).copied().unwrap_or(0)
-                    >= run.gaps.keys.get(key).copied().unwrap_or(0)
+                    >= held(key, run.gaps.keys.get(key).copied().unwrap_or(0))
             })
         })
         .map(|(rule, _)| rule.clone())
@@ -473,6 +473,7 @@ fn reworded(
         if !reworded.contains(key) {
             continue;
         }
+        let before = *file_count;
         for (other, run_other, file_other) in gone.iter_mut() {
             if (&other.kind, &other.subject) != (&key.kind, &key.subject) {
                 continue;
@@ -485,6 +486,8 @@ fn reworded(
             *run_other += moved;
             found.accepted_unknowns += moved;
         }
+        // A key that the file did not hold is now one accepted entry; a key that matched exactly already was.
+        found.accepted_entries += u64::from(before == 0 && *file_count > 0);
     }
     newer.retain(|(_, run, file)| run > file);
     gone.retain(|(_, run, file)| run < file);

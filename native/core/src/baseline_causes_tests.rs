@@ -92,3 +92,14 @@ fn a_first_cause_of_a_file_of_1_4_0_is_still_compared_exactly() {
     let found = compare(&file("1.4.0", &[FIRST]), &run(&[NEXT], &[]));
     assert_eq!((found.new.len(), found.gone.len()), (1, 1), "{found:?}");
 }
+
+#[test]
+fn a_rule_is_accepted_on_the_counts_that_a_file_of_1_4_0_is_compared_with() {
+    // The same key comes from the first cause and from a later one: the run counts it twice, the file once.
+    let mut twice = run(&[FIRST], &[]);
+    twice.gaps.keys.insert(key(FIRST.0, FIRST.1), 2);
+    twice.gaps.beyond.insert(key(FIRST.0, FIRST.1), 1);
+    let found = compare(&file("1.4.0", &[FIRST]), &twice);
+    assert_eq!((found.new.len(), found.gone.len()), (0, 0), "{found:?}");
+    assert_eq!(found.accepted_rules, vec!["RULE".to_owned()]);
+}

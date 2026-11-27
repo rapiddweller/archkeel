@@ -1,4 +1,4 @@
-# AD-1290: A baseline keys every cause of a rule and matches a reworded collector gap
+# AD-1330: A baseline keys every cause of a rule and matches a reworded collector gap
 
 Status: accepted. Amends AD-546. Closes #2184 for the next write of a baseline.
 

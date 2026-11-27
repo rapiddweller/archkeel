@@ -75,6 +75,10 @@ fn a_reworded_collector_gap_with_the_same_kind_subject_and_count_is_current() {
     assert_eq!((found.new.len(), found.gone.len()), (0, 0), "{found:?}");
     assert_eq!(found.state.exit_code(), 2);
     assert_eq!(found.accepted_unknowns, 2);
+    assert_eq!(
+        found.accepted_entries, 1,
+        "one distinct entry, matched by its kind and subject"
+    );
 }
 
 #[test]
