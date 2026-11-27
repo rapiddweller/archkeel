@@ -51,6 +51,8 @@ class GapKind(StrEnum):
     REFERENCE_PACKAGE_UNSCANNED = "reference.package_unscanned"
     GRAPH_COUNT = "graph.count"
     GRAPH_DRIFT = "graph.drift"
+    # AD-1212: a drawn edge that only compiler facts prove, in a scan without facts.
+    GRAPH_NEEDS_FACTS = "graph.needs_facts"
     CLOSED_WORLD_OBSERVED_FORBIDDEN = "closed_world.observed_forbidden"
     CLOSED_WORLD_DUPLICATE = "closed_world.duplicate"
     DECISION_CONFLICT = "decision.conflict"
