@@ -1,6 +1,6 @@
 # AD-1061 The self-check is compared with its base commit, beside the pins
 
-**Status.** Accepted. Owner decision of 2026-11-23: delete the pins and compare the self-check result of a PR with the result of the same run on its base commit. This is stage 1 and 2 of 3. Stage 3 is [AD-1064](ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md). Supersedes in part AD-672, AD-733, AD-944 and AD-945. Amends AD-357, AD-382, AD-432, AD-478, AD-674 (point 1) and AD-736 (point 8).
+**Status.** Accepted. The growth approval of point 4 is superseded by [AD-1221](ad-1221-gap-growth-is-reported-and-only-rule-and-scope-losses-need-the-ratchet-label.md): a gap is reported, and the label alone approves the other items. Owner decision of 2026-11-23: delete the pins and compare the self-check result of a PR with the result of the same run on its base commit. This is stage 1 and 2 of 3. Stage 3 is [AD-1064](ad-1064-the-pin-files-are-deleted-and-the-base-comparison-is-the-only-self-check-gate.md). Supersedes in part AD-672, AD-733, AD-944 and AD-945. Amends AD-357, AD-382, AD-432, AD-478, AD-674 (point 1) and AD-736 (point 8).
 
 **Reason.** `native/expected-gaps.json` holds 18,389 gaps (92,050 lines). `native/expected-growth.json` holds 165,553 lines for about 6 distinct reasons. 86 commits changed the pin in 14 days. No person reads these files. The aim of the pin is "no growth". The base result tests that aim and stores nothing in the repository.
 

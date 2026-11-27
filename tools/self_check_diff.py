@@ -4,20 +4,20 @@
 """Compare a self-check result with the result of the same run on the base commit (AD-1064).
 
 Run: `python tools/self_check_diff.py <base.json> <pr.json> [--base-sha S] [--labels a,b]
-[--body-file F] [--report-only] [--grown-file F] [--summary-file F]`, or `same <a.json> <b.json>`,
+[--report-only] [--grown-file F] [--summary-file F]`, or `same <a.json> <b.json>`,
 `alone <pr.json>` (the PR result must be clean). The shell gate is `tools/self_check_shell.py`.
 
 A file is the full JSON of `archkeel validate` or the condensed form of `condense`: the gaps as
 (kind, subjects, reason), the rule statuses, the UNKNOWN reason kinds, the violations and the exit
 code, with the sha and the native tree that it was computed for. The PR result must have no
-refusal, no FAIL, no violation and the exit code that its statuses give. Growth is a new gap (a
-multiset compare, so a growing gap counts for each occurrence), a new UNKNOWN reason kind, or a
-rule with a worse status (PASS < UNKNOWN < FAIL), fewer scanned files, a changed `[scan]`
-table, or a changed path or contract scope. Changed contract inputs with removed gaps also count.
-Removals do not offset additions. Growth needs `ratchet-lead` and `Ratchet growth: <N> items:
-<reason>`. N is the printed count. The shell gate reads its own `Ratchet growth (shell): ...` line.
-A base that is missing, corrupt, refused or for another commit
-compares as an empty base, and only the same approval passes it. The log shows the first
+refusal, no FAIL, no violation and the exit code that its statuses give. A new gap (a multiset
+compare, so a growing gap counts for each occurrence) is reported as one line `gap growth: N items`
+and never fails the gate: a gap holds its rule at UNKNOWN (exit 2), so it cannot give a PASS
+(AD-1221). These items still fail without the label `ratchet-lead`: a new UNKNOWN reason kind, a
+rule with a worse status (PASS < UNKNOWN < FAIL), a removed rule, fewer scanned files, a changed
+`[scan]` table, a changed path or contract scope, and changed contract inputs with removed gaps.
+The label alone approves them. A base that is missing, corrupt, refused or for another commit
+compares as an empty base, and only the label passes it. The log shows the first
 `SHOWN` grown items; `--grown-file` takes all of them. `--report-only` (main CI, which cannot see
 the label) fails only on a result that is not clean.
 """
@@ -37,13 +37,6 @@ RANK = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
 RECEIVER_GAP = re.compile(r"A method call may reach the method (\S+) of a type in its own file")
 FORMAT = "selfcheck-v2"
 LABEL = "ratchet-lead"
-NUMBER = r"(0|[1-9][0-9]*) items?: \S.{9,}"
-LINE = re.compile(rf"Ratchet growth: {NUMBER}")
-SHELL_LINE = re.compile(rf"Ratchet growth \(shell\): {NUMBER}")
-INLINE_CODE = re.compile(r"`[^`]*`")
-DETAILS_OPEN = re.compile(r"<details\b", re.IGNORECASE)
-DETAILS_CLOSE = re.compile(r"</details\s*>", re.IGNORECASE)
-FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 SHOWN = 10
 SUMMARY_LIMIT = 60_000
 FIELDS = ("rules", "unknown", "gaps", "violations", "exit_code")
@@ -252,18 +245,24 @@ def both(text: str) -> tuple[str, str]:
     return text, text
 
 
-def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tuple[str, str]], int]:
-    """The heading lines, each grown item as (short, full) text, and the count of removed gaps."""
+def grown(
+    base: dict[str, Any], pr: dict[str, Any]
+) -> tuple[list[str], list[tuple[str, str]], list[tuple[str, str]], int]:
+    """The heading lines, the new gaps and the blocking items as (short, full) text, removed gaps.
+
+    A new gap only holds a rule at UNKNOWN. Every other item can hide a lost rule or scope.
+    """
     old = Counter(map(tuple, base["gaps"]))
     new = Counter(map(tuple, pr["gaps"]))
     by_reason: dict[tuple[str, str], list[str]] = defaultdict(list)
     for kind, subjects, reason in sorted((new - old).elements()):
         by_reason[(kind, reason)].append(subjects)
     lines: list[str] = []
+    gaps: list[tuple[str, str]] = []
     items: list[tuple[str, str]] = []
     for (kind, reason), subjects in sorted(by_reason.items()):
         lines.append(f"GROWN {len(subjects)} new gaps [{kind}]: {one(reason)}")
-        items += [one2(kind, item, reason) for item in subjects]
+        gaps += [one2(kind, item, reason) for item in subjects]
     if any(RECEIVER_GAP.search(reason) for _kind, reason in by_reason):
         lines.append(
             "Hint: write a method call as a path call (`Type::method(&value)`) or bind a typed "
@@ -290,53 +289,21 @@ def grown(base: dict[str, Any], pr: dict[str, Any]) -> tuple[list[str], list[tup
         items.append(both("scope changed: scanned paths or contract scope differ from the base"))
     if not scope_changed and old - new and base.get("contract_files") != pr.get("contract_files"):
         items.append(both("scope changed: contract inputs changed while gaps were removed"))
-    return lines, items, sum((old - new).values())
+    return lines, gaps, items, sum((old - new).values())
 
 
-def plain_lines(body: str) -> list[str]:
-    """The PR text lines that a reader sees as plain text: no code, quote, comment or `<details>`.
-
-    Trailing blanks go, so that they do not count as a part of the reason.
-    """
-    lines: list[str] = []
-    fence = ""
-    quoted = False
-    hidden = 0
-    for line in re.sub(r"<!--.*?(-->|\Z)", "", body, flags=re.DOTALL).splitlines():
-        marker = FENCE.match(line)
-        if marker and (not fence or marker.group(1)[0] == fence):
-            fence = "" if fence else marker.group(1)[0]
-            continue
-        quoted = line.lstrip().startswith(">") or (quoted and bool(line.strip()))
-        if fence or quoted:
-            continue
-        tags = INLINE_CODE.sub("", line)
-        opens, closes = len(DETAILS_OPEN.findall(tags)), len(DETAILS_CLOSE.findall(tags))
-        if not hidden and not opens:
-            lines.append(line.rstrip())
-        hidden = max(0, hidden + opens - closes)
-    return lines
+def approval(count: int, labels: list[str]) -> list[str]:
+    """The reasons why `count` blocking items are not approved; empty when the label is set."""
+    if LABEL in labels:
+        return []
+    return [f"{count} blocking items need the label {LABEL}"]
 
 
-def approval(count: int, labels: list[str], body: str, shell: bool = False) -> list[str]:
-    """The reasons why growth of `count` items is not approved; empty when it is.
-
-    Each gate reads only its own line: `Ratchet growth: N items: <reason>` (native) or
-    `Ratchet growth (shell): N items: <reason>`. Both lines can stand in one PR text.
-    """
-    name = "Ratchet growth (shell)" if shell else "Ratchet growth"
-    pattern = SHELL_LINE if shell else LINE
-    ask = f"`{name}: {count} items: <reason>`"
-    if LABEL not in labels:
-        return [f"growth of {count} items needs the label {LABEL} and the PR text line {ask}"]
-    said = [int(m.group(1)) for line in plain_lines(body) if (m := pattern.fullmatch(line))]
-    if not said:
-        return [f"the label {LABEL} is set, but the PR text has no plain line {ask}"]
-    if len(said) > 1:
-        return [f"the PR text has {len(said)} `{name}` lines; keep exactly one"]
-    if count not in said:
-        return [f"the PR text says {name}: {said[0]} items, the grown count is {count}"]
-    return []
+def gap_growth(gaps: list[tuple[str, str]]) -> str:
+    """One line for the new gaps; their kinds say where the growth sits."""
+    kinds = Counter(short.split("]", 1)[0].removeprefix("gap [") for short, _full in gaps)
+    top = ", ".join(f"{kind} x{n}" for kind, n in kinds.most_common(3))
+    return f"gap growth: {len(gaps)} items (top kinds {top})"
 
 
 def where(result: dict[str, Any]) -> str:
@@ -356,7 +323,11 @@ def summary(result: dict[str, Any]) -> str:
 
 
 def report(
-    items: list[tuple[str, str]], errors: list[str], grown_file: str, summary_file: str
+    items: list[tuple[str, str]],
+    errors: list[str],
+    grown_file: str,
+    summary_file: str,
+    note: str = "",
 ) -> None:
     """Print the first `SHOWN` grown items; keep all of them in `grown_file` and the summary."""
     for short, _full in items[:SHOWN]:
@@ -369,6 +340,8 @@ def report(
         Path(grown_file).write_text("".join(f"{full}\n" for _s, full in items), encoding="utf-8")
     if summary_file and (items or errors):
         lines = [f"### Self-check: {len(items)} grown items"]
+        if note:
+            lines.append(note)
         lines += [f"- {one(text)[:500]}" for text in errors[:SHOWN]]
         if len(errors) > SHOWN:
             lines.append(f"- and {len(errors) - SHOWN} more errors")
@@ -384,12 +357,11 @@ def check(
     pr_path: str,
     base_sha: str,
     labels: list[str],
-    body: str,
     report_only: bool = False,
     grown_file: str = "",
     summary_file: str = "",
 ) -> int:
-    """Print the comparison and return the exit code: 0 when nothing grew or growth is approved."""
+    """Print the comparison and return the exit code: 0 when no blocking item is left unapproved."""
     try:
         pr = load(pr_path)
     except Unusable as error:
@@ -408,19 +380,21 @@ def check(
         base = EMPTY
         show(f"the base result is unusable: {error}; nothing is compared, each item counts as new")
         if LABEL not in labels:
-            errors.append(f"unusable base: set the label {LABEL} and the growth line to pass")
+            errors.append(f"unusable base: set the label {LABEL} to pass")
     show(summary(pr))
-    lines, items, removed = grown(base, pr)
-    count = len(items)
-    if lines:
-        for line in lines:
-            show(line)
-    if count:
-        errors += approval(count, labels, body)
+    lines, gaps, blocking, removed = grown(base, pr)
+    count = len(blocking) + len(gaps)
+    for line in lines:
+        show(line)
+    note = gap_growth(gaps) if gaps else ""
+    if note:
+        show(note)
+    if blocking:
+        errors += approval(len(blocking), labels)
     if count and removed:
         show(f"{removed} gaps are removed. A reworded reason or a renamed module shows as both.")
     show(f"self-check diff: grown {count}, removed {removed}")
-    report(items, hard + errors, grown_file, summary_file)
+    report([*blocking, *gaps], hard + errors, grown_file, summary_file, note)
     for line in hard + errors:
         show(f"FAIL {line}")
     if hard or errors:
@@ -471,18 +445,11 @@ def main(argv: list[str]) -> int:
         print(__doc__)  # the module text, not a result
         return 2
     labels = [name for name in option("--labels").split(",") if name]
-    body_file = option("--body-file")
-    body = (
-        Path(body_file).read_text(encoding="utf-8")
-        if body_file and Path(body_file).is_file()
-        else ""
-    )
     return check(
         argv[0],
         argv[1],
         option("--base-sha"),
         labels,
-        body,
         "--report-only" in argv,
         option("--grown-file"),
         option("--summary-file"),

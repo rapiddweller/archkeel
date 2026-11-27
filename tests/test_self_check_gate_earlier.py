@@ -124,8 +124,8 @@ def test_an_entry_of_no_known_commit_is_a_miss(repo: Path, sha: str) -> None:
 def test_a_reused_entry_still_finds_growth(repo: Path) -> None:
     earlier_repo(repo, "docs/guide.md")
     done = gate(repo, "plus-one-gap.json")
-    assert done.returncode == 1 and "reusing the entry of" in done.stdout
-    assert "inventory.stock" in done.stdout
+    assert done.returncode == 0 and "reusing the entry of" in done.stdout
+    assert "inventory.stock" in done.stdout and "gap growth: 1 items" in done.stdout
 
 
 def test_a_cache_hit_and_a_computed_miss_name_their_cost(repo: Path) -> None:
