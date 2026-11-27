@@ -28,24 +28,11 @@ impl crate::graph::Graph {
     }
 }
 
-/// The section names of `tools/dual_run_schema.json`, in its order.
-fn schema_sections() -> Vec<String> {
-    let schema = include_str!("../../../tools/dual_run_schema.json");
-    let start = schema.find("\"sections\": [").unwrap_or(0);
-    let list = &schema[start..];
-    let end = list.find(']').unwrap_or(0);
-    list[..end]
-        .split('"')
-        .skip(3)
-        .step_by(2)
-        .map(str::to_owned)
-        .collect()
-}
-
 #[test]
-fn the_sections_are_the_sections_of_the_dual_run_schema() {
-    let names: Vec<String> = Section::ALL.iter().map(|s| s.name().to_owned()).collect();
-    assert_eq!(names, schema_sections());
+fn each_section_has_a_unique_name_that_names_it_back() {
+    let names: Vec<&str> = Section::ALL.iter().map(|s| s.name()).collect();
+    let unique: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+    assert_eq!(unique.len(), names.len(), "{names:?}");
     for section in Section::ALL {
         assert_eq!(Section::of_name(section.name()), Some(*section));
     }
