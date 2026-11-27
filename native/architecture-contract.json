@@ -2704,11 +2704,12 @@
       "requires": [
         {
           "component": "model",
-          "rationale": "Derive the model of the run and ask it for each section (AD-363).",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363). The baseline reads every cause of a rule from the models of the tree (AD-1330).",
           "through": [
             "native.archkeel_model:Graph",
             "native.archkeel_model:Hygiene",
             "native.archkeel_model:Measures",
+            "native.archkeel_model:ModelTree",
             "native.archkeel_model:Reason",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
@@ -2728,7 +2729,8 @@
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
             "native.archkeel_contract.policy",
-            "native.archkeel_contract:BudgetName"
+            "native.archkeel_contract:BudgetName",
+            "native.archkeel_contract:head_of"
           ]
         },
         {

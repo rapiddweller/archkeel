@@ -234,7 +234,7 @@ This safe file output requires POSIX directory handles; other platforms refuse f
 ### Baselines
 
 `validate --baseline PATH` compares the run with a baseline file. `validate --write-baseline PATH`
-writes the baseline of the run (schema 1.4.0). `PATH` names a regular file below the root, not an
+writes the baseline of the run (schema 1.5.0). `PATH` names a regular file below the root, not an
 absolute or parent path. The two options cannot name the same file. Run `--write-baseline` once,
 review the file, and keep it in the repository.
 
@@ -250,7 +250,11 @@ review the file, and keep it in the repository.
 
 The file lists each accepted UNKNOWN as `kind`, `subject` and `reason`, with a `count` above 1.
 A rule row has the rule id as subject, so a new rule that is UNKNOWN for an accepted cause is a new
-entry: write the file again and review the diff.
+entry: write the file again and review the diff. A rule can have several causes, and the file lists
+all of them (schema 1.5.0, [AD-1330](architecture/decisions/ad-1330-a-baseline-keys-every-cause-of-a-rule.md)):
+resolving the first cause is a `gone` entry, never a new one. A file of schema 1.4.0 lists the first
+cause only and is compared on that cause; write it again once to get the full list. A collector gap is
+matched by its exact kind, subject and reason.
 There is no line, evidence id or digest, so an unrelated edit does not change an entry. An accepted
 UNKNOWN stays UNKNOWN: the rule row, the run status and the exit code keep the word, and the text
 says `accepted UNKNOWN entries`. UNKNOWN never exits 0. Accepted violations are known debt: they do

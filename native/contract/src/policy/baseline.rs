@@ -18,7 +18,7 @@ use crate::policy::reference::schema_repr;
 /// An unchecked baseline cannot be built outside the crate:
 /// ```compile_fail,E0451
 /// use archkeel_contract::policy::ValidationBaseline;
-/// let baseline = ValidationBaseline { violations: vec![], budgets: vec![], unknowns: None };
+/// let baseline = ValidationBaseline { violations: vec![], budgets: vec![], unknowns: None, all_causes: false };
 /// ```
 pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError> {
     if bytes.len() > MAX_BASELINE_BYTES {
@@ -31,7 +31,7 @@ pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError>
     let document = object(&value, "baseline")?;
     let version = match field(document, "schema_version") {
         Some(Json::Text(text))
-            if ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"].contains(&text.as_str()) =>
+            if ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"].contains(&text.as_str()) =>
         {
             text.as_str()
         }
@@ -77,6 +77,7 @@ pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError>
         violations,
         budgets,
         unknowns,
+        all_causes: version >= "1.5.0",
     })
 }
 

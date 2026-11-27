@@ -11,7 +11,7 @@ use crate::policy::baseline_value::{
     AcceptedUnknown, BaselineBudget, NameBudgetKind, ValidationBaseline,
 };
 
-/// Write schema 1.3.0, or 1.4.0 when the baseline has an `unknowns` list, with `sort_keys=True`, `indent=2`, `ensure_ascii=False` and a line feed.
+/// Write schema 1.3.0, or 1.4.0 (1.5.0 when it names every cause) when the baseline has an `unknowns` list, with `sort_keys=True`, `indent=2`, `ensure_ascii=False` and a line feed.
 pub fn baseline_bytes(baseline: &ValidationBaseline) -> Vec<u8> {
     let mut budgets = Map::new();
     let mut keyed: std::collections::BTreeMap<&str, Map<String, Value>> =
@@ -54,7 +54,11 @@ pub fn baseline_bytes(baseline: &ValidationBaseline) -> Vec<u8> {
     let mut value =
         json!({ "schema_version": "1.3.0", "violations": violations, "budgets": budgets });
     if let Some(unknowns) = &baseline.unknowns {
-        value["schema_version"] = json!("1.4.0");
+        value["schema_version"] = json!(if baseline.all_causes {
+            "1.5.0"
+        } else {
+            "1.4.0"
+        });
         value["unknowns"] = Value::Array(unknowns.iter().map(unknown).collect());
     }
     value.sort_all_objects();

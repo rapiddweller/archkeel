@@ -406,6 +406,21 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
             (key, *item.count())
         })
         .collect();
+    // A file of schema 1.4.0 names the first cause of each rule only: the causes beyond it are not compared,
+    // so a file that a build wrote stays current for the same source (AD-1330).
+    let held = |key: &Key, count: u64| -> u64 {
+        match file.all_causes() {
+            true => count,
+            false => count.saturating_sub(run.gaps.beyond.get(key).copied().unwrap_or(0)),
+        }
+    };
+    let run_keys: BTreeMap<&Key, u64> = run
+        .gaps
+        .keys
+        .iter()
+        .map(|(key, count)| (key, held(key, *count)))
+        .filter(|(_, count)| *count > 0)
+        .collect();
     found.accepted_rules = run
         .gaps
         .by_rule
@@ -413,26 +428,34 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
         .filter(|(_, keys)| {
             keys.iter().all(|key| {
                 file_counts.get(key).copied().unwrap_or(0)
-                    >= run.gaps.keys.get(key).copied().unwrap_or(0)
+                    >= held(key, run.gaps.keys.get(key).copied().unwrap_or(0))
             })
         })
         .map(|(rule, _)| rule.clone())
         .collect();
-    for (key, run_count) in &run.gaps.keys {
-        let file_count = file_counts.get(key).copied().unwrap_or(0);
+    let mut newer: Vec<(Key, u64, u64)> = Vec::new();
+    let mut gone: Vec<(Key, u64, u64)> = Vec::new();
+    for (key, run_count) in &run_keys {
+        let file_count = file_counts.get(*key).copied().unwrap_or(0);
         let shared = (*run_count).min(file_count);
         found.accepted_unknowns += shared;
         found.accepted_entries += u64::from(shared > 0);
         if *run_count > file_count {
-            found.new.push(entry(key, *run_count, file_count));
+            newer.push(((*key).clone(), *run_count, file_count));
         }
     }
     for (key, file_count) in &file_counts {
-        let run_count = run.gaps.keys.get(key).copied().unwrap_or(0);
+        let run_count = run_keys.get(key).copied().unwrap_or(0);
         if run_count < *file_count {
-            found.gone.push(entry(key, run_count, *file_count));
+            gone.push((key.clone(), run_count, *file_count));
         }
     }
+    found
+        .new
+        .extend(newer.iter().map(|(key, run, file)| entry(key, *run, *file)));
+    found
+        .gone
+        .extend(gone.iter().map(|(key, run, file)| entry(key, *run, *file)));
 }
 
 fn entry(key: &Key, run: u64, file: u64) -> Difference {
@@ -449,3 +472,7 @@ fn entry(key: &Key, run: u64, file: u64) -> Difference {
 #[cfg(test)]
 #[path = "baseline_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "baseline_causes_tests.rs"]
+mod causes_tests;

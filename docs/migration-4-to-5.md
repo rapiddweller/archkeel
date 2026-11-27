@@ -22,7 +22,7 @@ it is linked to a merged pull request or decision record. Each command in the bl
 | `archkeel report --output architecture.json --json` | `archkeel report --json` (prints the frame) | `status`, `exit_code`, `frame` |
 | `archkeel report --input architecture.json --only architecture --full --json` | refused. Use `archkeel report --json`. | `frame.rules`, `frame.gaps` |
 | `archkeel validate --baseline known-violations.json --json` | the same command | `baseline.state`, `baseline.exit_code` |
-| `archkeel validate --write-baseline known-violations.json` | the same command. It writes schema 1.4.0. | file keys `unknowns`, `budgets`, `violations` |
+| `archkeel validate --write-baseline known-violations.json` | the same command. It writes schema 1.5.0. | file keys `unknowns`, `budgets`, `violations` |
 | `archkeel report --output architecture.html` | the same command (HTML is the default format) | none. The page is the output. |
 | `archkeel --version` | the same command | none |
 | EE `script/architecture`: `archkeel.analyzer.python.collect.PythonProviderCollector`, `archkeel.check.report.run_report`, `archkeel.check.validation.run_validate`, `archkeel.render.html.render_architecture_html` | a subprocess: `archkeel validate --json`, then `archkeel report --output FILE` | `status`, `exit_code` |
@@ -140,7 +140,7 @@ Steps, each measured on the copy:
    with exit 2, until a rule changes.
 5. Replace the gate. Read these keys of the result: `outcome` is `verdict`, `exit_code` is 0 or 2,
    `baseline.state` is `current`, and `baseline.new`, `baseline.gone` and `baseline.gaps` are empty.
-   `frame.violations` is empty. The file has schema `1.4.0` and its `budgets` object. Keep the review
+   `frame.violations` is empty. The file has schema `1.5.0` and its `budgets` object. Keep the review
    digest of `known-violations.json` and compare `frame.contract_digest` with the review.
 6. Raise or lower a budget only by writing the file again. A run above the file is `budget.exceeded`,
    exit 1. A run below the file is stale, `drift`, exit 1.
