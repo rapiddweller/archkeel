@@ -12,7 +12,7 @@ export CARGO_TERM_PROGRESS_WHEN := never
 export CARGO_TERM_QUIET := true
 endif
 
-.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check generated-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -261,12 +261,6 @@ browser-architecture-check: core browser-runtime-install
 report-gallery: core
 	rm -rf test-artifacts/gallery
 	$(UV) run --locked python -m tools.report_gallery --out test-artifacts/gallery --source-cache test-artifacts/source-cache --archkeel "$(UV) run --locked archkeel"
-
-# AD-343: record the golden replies of the TypeScript collector. REASON says why a reply changes.
-# The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
-golden-record:
-	cd native && cargo build --locked --release -p archkeel-typescript-collector
-	$(UV) run --locked python tests/golden_record.py --language "$(LANGUAGE)" --case "$(CASE)" --reason "$(REASON)" --binary native/target/release/archkeel-typescript-collector $(if $(ALLOW_DIRTY),--allow-dirty,)
 
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:

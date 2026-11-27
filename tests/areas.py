@@ -142,7 +142,6 @@ HEAVY_FILES = frozenset(
         "test_cli_report_topology.py",
         # The main tier builds the core and fills the registry for the offline Serde witness.
         "test_collector_false_pass_rust_serde_dispatch.py",
-        "test_collector_golden_replies.py",
         "test_collector_native_digest.py",
         "test_collector_native_records.py",
         "test_collector_native_rust_definitions_oracle.py",
