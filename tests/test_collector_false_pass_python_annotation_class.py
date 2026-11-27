@@ -84,7 +84,18 @@ LOOKUP = {
     + f's, t = "{IMPORT}", "int"\n\n\nclass K:\n    x: s\n\n\n'
     + 'try:\n    getattr(typing, "get_type_hints")(K)\nexcept Exception:\n    pass\n',
 }
-PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP}
+REVIEW = {
+    "signature of a nested function": HEAD
+    + f'def outer():\n    def inner(x: b"{IMPORT}".decode()):\n        pass\n\n'
+    + "    return inner\n\n\n"
+    + "K = outer()\n"
+    + HINTS,
+    "cast returns the string": named(f's = typing.cast(str, "{IMPORT}")'),
+    "evaluator imported under an alias": "from typing import get_type_hints as hints\n\n\n"
+    + f's = str("{IMPORT}")\n\n\nclass K:\n    x: s\n\n\n'
+    + "try:\n    hints(K)\nexcept Exception:\n    pass\n",
+}
+PLANTS = {**WRITES, **NAMES, **BUILDERS, **LOOKUP, **REVIEW}
 CONTROLS = {
     "plain forms": HEAD
     + "class K:\n    x: int\n    y: typing.Optional[str]\n    z: list[int] | None\n"

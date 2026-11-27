@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Comprehension, Expr, Identifier, ModModule, Operator, Pattern, PatternMatchAs,
+    Alias, Comprehension, Expr, Identifier, ModModule, Operator, Pattern, PatternMatchAs,
     PatternMatchMapping, PatternMatchStar, Stmt,
 };
 use ruff_text_size::{Ranged, TextRange};
@@ -40,7 +40,7 @@ const EVALUATORS: [&str; 5] = [
 ];
 const BUILDERS: [&str; 3] = ["TypedDict", "NamedTuple", "make_dataclass"];
 /// A call of these makes a type form, not a string.
-const TYPE_FORMS: [&str; 8] = [
+const TYPE_FORMS: [&str; 7] = [
     "TypeVar",
     "ParamSpec",
     "TypeVarTuple",
@@ -48,7 +48,6 @@ const TYPE_FORMS: [&str; 8] = [
     "TypeAliasType",
     "namedtuple",
     "Enum",
-    "cast",
 ];
 
 /// True for `Literal` and `typing.Literal`: its strings are values, no annotation.
@@ -150,6 +149,13 @@ impl<'a> Scan<'a> {
         }
         let grown: Vec<String> = seen.into_iter().map(str::to_owned).collect();
         self.tainted.extend(grown);
+    }
+
+    fn imports(&mut self, aliases: &[Alias]) {
+        let named = |alias: &Alias| alias.name.rsplit('.').next().unwrap_or_default().to_owned();
+        self.evaluates |= aliases
+            .iter()
+            .any(|a| EVALUATORS.contains(&named(a).as_str()));
     }
 
     fn taint(&mut self, target: &Expr) {
@@ -291,6 +297,9 @@ impl<'a> Visitor<'a> for Scan<'a> {
                 .iter()
                 .filter_map(|item| item.optional_vars.as_deref())
                 .for_each(|target| self.taint(target)),
+            // An evaluator that the module imports under another name is an evaluator.
+            Stmt::Import(node) => self.imports(&node.names),
+            Stmt::ImportFrom(node) => self.imports(&node.names),
             Stmt::FunctionDef(node) => {
                 node.decorator_list
                     .iter()
@@ -298,9 +307,11 @@ impl<'a> Visitor<'a> for Scan<'a> {
                 node.type_params
                     .iter()
                     .for_each(|p| self.visit_type_params(p));
+                // The signature of a function is evaluated in the scope that holds the function.
+                let outer = std::mem::replace(&mut self.local, false);
                 self.visit_parameters(&node.parameters);
                 node.returns.iter().for_each(|r| self.visit_annotation(r));
-                let outer = std::mem::replace(&mut self.local, true);
+                self.local = true;
                 self.visit_body(&node.body);
                 self.local = outer;
                 return;
