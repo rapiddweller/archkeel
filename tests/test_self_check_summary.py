@@ -75,10 +75,9 @@ def envelope(inner: dict[str, Any]) -> dict[str, Any]:
     return {"command": "report", "status": inner["status"], "exit_code": 2, "frame": inner}
 
 
-def repository(tmp_path: Path, files: dict[str, int], baseline: dict[str, int]) -> Path:
+def repository(tmp_path: Path, files: dict[str, int]) -> Path:
     root = tmp_path / "repo"
     (root / "tests").mkdir(parents=True)
-    (root / "tests/file_size_baseline.json").write_text(json.dumps(baseline), encoding="utf-8")
     for name, lines in files.items():
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_text("x = 1\n" * lines, encoding="utf-8")
@@ -102,7 +101,7 @@ def test_the_text_stays_within_40_lines_for_the_largest_input(tmp_path: Path) ->
     write(tmp_path, "system", big)
     files = {f"src/over{i}.py": 520 for i in range(6)}
     files |= {f"src/near{i}.py": 500 for i in range(70)}
-    root = repository(tmp_path, files, {"src/legacy.py": 900})
+    root = repository(tmp_path, files)
     lines = tool.summary(tmp_path, root, 1, "x.log")
     assert len(lines) <= tool.MAX_LINES, "\n".join(lines)
     assert sum(line.startswith("  next:") for line in lines) == 5
@@ -122,7 +121,7 @@ def test_the_counts_equal_the_counts_of_the_result_files(tmp_path: Path) -> None
     inner = frame(status="UNKNOWN", causes=3, violations=2, modules=4)
     inner["explained"] = {"R-A": "w", "R-B": "w"}
     write(tmp_path, "native", envelope(inner))
-    root = repository(tmp_path, {}, {})
+    root = repository(tmp_path, {})
     lines = tool.summary(tmp_path, root, 0, "x.log")
     assert "violations: 2" in lines
     assert "  2 x cause 1 (first: native/a/src/lib.rs:7)" in lines
@@ -144,7 +143,7 @@ def test_a_gap_without_subjects_keeps_its_cause_and_gate_result(tmp_path: Path) 
         {"kind": "collection_gap", "subjects": [], "reason": "has place", "evidence": ["EVD-1"]},
     ]
     write(tmp_path, "native", envelope(inner))
-    root = repository(tmp_path, {}, {})
+    root = repository(tmp_path, {})
     lines = tool.summary(tmp_path, root, 1, "x.log")
     assert "  1 x no place (first: no subject)" in lines
     assert "  1 x has place (first: native/a/src/lib.rs:7)" in lines
@@ -158,14 +157,12 @@ def test_a_file_over_the_limit_is_listed_and_a_file_at_the_limit_is_near(tmp_pat
             "src/clean.py": 3,
             "src/big.py": 520,
             "src/edge.py": 500,
-            "src/old.py": 700,
             "x/y.py": 900,
         },
-        {"src/old.py": 700},
     )
     lines = tool.sizes(root)
-    assert lines[0] == "size (measured, limit 500): 1 files over it, not in the baseline"
+    assert lines[0] == "size (measured, limit 500): 1 files over it"
     assert lines[1] == "  over: src/big.py (520 lines)"
     assert lines[2] == "  1 files at 450 to 500 lines; 1 at 500: src/edge.py"
-    removed = repository(tmp_path / "again", {"src/big.py": 500}, {})
-    assert tool.sizes(removed)[0].endswith("0 files over it, not in the baseline")
+    removed = repository(tmp_path / "again", {"src/big.py": 500})
+    assert tool.sizes(removed)[0].endswith("0 files over it")
