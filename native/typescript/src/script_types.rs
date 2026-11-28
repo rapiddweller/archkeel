@@ -82,7 +82,7 @@ pub(crate) fn key_form() -> &'static str {
 }
 
 /// The kinds of a literal value: it is no function, so a write of it patches no call (#1674).
-pub(crate) const LITERAL_KINDS: [&str; 7] = [
+const LITERAL_KINDS: [&str; 7] = [
     "string",
     "number",
     "true",

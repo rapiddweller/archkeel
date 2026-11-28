@@ -4333,7 +4333,6 @@
         "native.archkeel_typescript_collector.scan:scan",
         "native.archkeel_typescript_collector.script_types:Blocker",
         "native.archkeel_typescript_collector.script_types:FactoryMember",
-        "native.archkeel_typescript_collector.script_types:LITERAL_KINDS",
         "native.archkeel_typescript_collector.script_types:Member",
         "native.archkeel_typescript_collector.script_types:Patch",
         "native.archkeel_typescript_collector.script_types:Script",
@@ -4344,6 +4343,7 @@
         "native.archkeel_typescript_collector.script_types:ScriptNamespace",
         "native.archkeel_typescript_collector.script_types:Write",
         "native.archkeel_typescript_collector.script_types:key_form",
+        "native.archkeel_typescript_collector.script_types:no_function",
         "native.archkeel_typescript_collector.walk:Syntax",
         "native.archkeel_typescript_collector.walk:Walk"
       ],
@@ -7084,7 +7084,8 @@
         "native.archkeel_dart_collector.sites.references",
         "native.archkeel_dart_collector.sites.canonical",
         "native.archkeel_dart_collector.cargo_toml",
-        "native.archkeel_typescript_collector.script_outside_names"
+        "native.archkeel_typescript_collector.script_outside_names",
+        "native.archkeel_typescript_collector.script_types"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
       "provenance": [
