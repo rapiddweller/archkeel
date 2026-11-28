@@ -213,3 +213,75 @@ def test_the_module_may_use_its_binding_only_as_an_attribute_base(
         result = run(tmp_path / name, {MODEL: model}, [pickle_declaration()], release_core)
         kinds = {gap["kind"] for gap in result["gaps"]}
         assert ("trojan_horse_reach.invalid" not in kinds) == applied, (name, kinds)
+
+
+def anchored(**fields: Any) -> dict[str, Any]:
+    """A declaration of the string `__self__` that is anchored by its scope (AD-1480)."""
+    return named(scope="", line=1) | fields
+
+
+def kinds(result: dict[str, Any]) -> set[str]:
+    return {gap["kind"] for gap in result["gaps"]}
+
+
+def test_an_edit_above_an_anchored_site_keeps_the_declaration_and_an_old_one_stops(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """The line is a hint when the declaration has a scope; without a scope it must be exact."""
+    edited = {MODEL: "# one line\n\n\nKEY = '__self__'\n"}
+    moved = run(tmp_path / "a", edited, [anchored()], release_core)
+    assert set(rows(moved).values()) == {"PASS"}, moved["gaps"]
+    assert "trojan_horse_reach.unmatched" not in kinds(moved)
+    (row,) = moved["frame"]["trojan_horse_reach"]
+    assert row["id"] == "D-NAME"
+
+    old = run(tmp_path / "b", edited, [named(line=1)], release_core)
+    assert "trojan_horse_reach.unmatched" in kinds(old) and old["exit_code"] == 2
+    assert "PASS" not in {v for k, v in rows(old).items() if k not in ON_FILES}
+
+
+def test_a_site_in_another_function_is_a_named_gap_and_never_a_pass(
+    release_core: Path, tmp_path: Path
+) -> None:
+    files = {MODEL: "def build():\n    return '__self__'\n"}
+    # The declaration anchors the module level; the site is in `build`.
+    result = run(tmp_path / "a", files, [anchored()], release_core)
+    assert "trojan_horse_reach.unmatched" in kinds(result) and result["exit_code"] == 2
+    assert "PASS" not in {v for k, v in rows(result).items() if k not in ON_FILES}
+    (gap,) = [g for g in result["gaps"] if g["kind"] == "trojan_horse_reach.unmatched"]
+    assert "scope build" in gap["reason"], gap["reason"]
+    # The anchor of the function applies, wherever its line is.
+    again = run(tmp_path / "b", files, [anchored(scope="build", line=40)], release_core)
+    assert set(rows(again).values()) == {"PASS"}, again["gaps"]
+
+
+def test_two_sites_in_one_scope_need_the_count_and_a_change_of_their_number_is_a_gap(
+    release_core: Path, tmp_path: Path
+) -> None:
+    def twin(number: int) -> dict[str, str]:
+        body = "".join("    '__self__'\n" for _ in range(number))
+        return {MODEL: f"def build():\n{body}"}
+
+    declared = [anchored(scope="build", line=90, count=2)]
+    assert set(rows(run(tmp_path / "a", twin(2), declared, release_core)).values()) == {"PASS"}
+    three = run(tmp_path / "b", twin(3), declared, release_core)
+    assert "trojan_horse_reach.ambiguous" in kinds(three)
+    one = run(tmp_path / "c", twin(1), declared, release_core)
+    assert "trojan_horse_reach.unmatched" in kinds(one)
+    for result in (three, one):
+        assert "PASS" not in {v for k, v in rows(result).items() if k not in ON_FILES}
+
+
+def test_a_deleted_site_and_a_new_one_elsewhere_do_not_share_a_declaration(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """The declared site is gone; another function now holds the same text."""
+    declared = [anchored(scope="build", line=2)]
+    first = run(
+        tmp_path / "a", {MODEL: "def build():\n    return '__self__'\n"}, declared, release_core
+    )
+    assert set(rows(first).values()) == {"PASS"}, first["gaps"]
+    second = {MODEL: "def other():\n    return '__self__'\n"}
+    result = run(tmp_path / "b", second, declared, release_core)
+    assert "trojan_horse_reach.unmatched" in kinds(result) and result["exit_code"] == 2
+    assert "PASS" not in {v for k, v in rows(result).items() if k not in ON_FILES}
