@@ -81,31 +81,22 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
     assert code == 2 and frame["status"] == "UNKNOWN"
     unknown = sorted(rule for rule, row in frame["rules"].items() if row[1] == "UNKNOWN")
     holds = frame["explain"]["holds"]
-    # The five requires rules wait for the gaps. The UML target row has another cause.
+    # The five requires rules wait for the imports. The UML target row has another cause.
     uml = [rule for rule in unknown if rule.startswith("UML-TARGET")]
     gapped = [rule for rule in unknown if rule not in uml]
     assert sorted(holds["rules"]) == unknown and (len(gapped), len(uml)) == (5, 1)
     other = holds["rules"][uml[0]]
     assert (other["kind"], other["total"], other["gaps"]) == ("other", 0, [])
-    by_gap = {gap["id"]: gap for gap in holds["gaps"]}
+    # AD-1510: the 82 gaps are resolution gaps. Each leaves the code of every module unknown, and no
+    # gap names the unresolved imports by their evidence, so the imports are the first cause.
     total = holds["gaps_total"]
-    # The computed import has its own effect. The whole-scope gaps already hold the rules.
-    whole = total - 1
-    assert holds["gaps_holding"] == len(by_gap) == whole > 20
-    assert {gap["reason"] for gap in frame["collection_gaps"]} - {
-        gap["reason"] for gap in by_gap.values()
-    } == {"Computed dynamic_import cannot be resolved"}
+    assert total > 20 and holds["gaps_holding"] == 0 and holds["gaps"] == []
     for rule in gapped:
         held = holds["rules"][rule]
-        assert (held["kind"], held["total"], held["truncated"]) == ("coverage_gaps", whole, True)
-        assert len(held["gaps"]) == 20 and held["cause"] == frame["unknown_kinds"][rule]
-        # Both directions agree: a gap that a rule lists lists that rule.
-        assert all(rule in by_gap[gap]["rules"] for gap in held["gaps"])
-    assert all(sorted(gap["rules"]) == gapped for gap in by_gap.values())
-    assert all(gap["rules_total"] == 5 and not gap["truncated"] for gap in by_gap.values())
-    assert frame["scope"].endswith(
-        f"{total} coverage gaps; {whole} of them leave the whole scope unknown"
-    )
+        assert (held["kind"], held["total"], held["gaps"]) == ("unknown_imports", 0, [])
+        assert held["unnamed_imports"] > 100 and held["cause"] == frame["unknown_kinds"][rule]
+    assert frame["scope"].startswith("incomplete scope: ")
+    assert "imports are not resolved and no gap names them" in frame["scope"]
 
 
 LIB = "mod a;\nmod b;\nmod c;\n"

@@ -142,6 +142,24 @@ fn the_code_of_every_module_holds_each_rule_but_the_rules_of_the_files() {
     assert_scope(&found, "every_module", &held, &FILES_ONLY);
 }
 
+#[test]
+fn a_resolution_gap_without_an_effect_is_the_code_of_every_module() {
+    // AD-1510: the kind decides. The gap leaves each edge and the code unknown, and the files and
+    // their owners known.
+    let found = run(unchanged, gap(INDEX, json!({})), rooted()).unwrap_or_else(failed);
+    let held = [
+        &EVERY_EDGE[..],
+        &[
+            "EXTERNAL-COMPLETE",
+            "EXTERNAL-SHOP",
+            "DOMAIN-NO-DATA",
+            "DATA-PEERS",
+        ],
+    ]
+    .concat();
+    assert_scope(&found, "every_module", &held, &FILES_ONLY);
+}
+
 fn layout(module: &'static str) -> impl FnOnce(&mut Value) + Clone {
     gap(module, json!({"effect": {"layout": {"modules": [module]}}}))
 }
@@ -251,7 +269,6 @@ fn a_gap_without_a_usable_effect_holds_every_rule() {
         reported: 1,
     }));
     for (name, fields) in [
-        ("no effect", json!({})),
         ("no source", json!({"effect": {"edges": {"sources": []}}})),
         ("no module", json!({"effect": {"modules": {"modules": []}}})),
         (
