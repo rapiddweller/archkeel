@@ -195,17 +195,19 @@ jobs:
           changed="$(git diff --name-only "$BASE" HEAD -- native/ tools/rustc-facts/)"
           if [ -n "$changed" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; fi
 
+      # AD-1390: a pull request only reads the cache. `windows-cache.yml` saves it on main when the lock
+      # or the toolchain changes, so each pushed commit no longer adds an entry of 458 MB.
       - name: Restore Rust cache
         if: steps.select.outputs.run == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             native/target
-          key: rust-windows-check-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          key: rust-windows-check-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}
           restore-keys: |
-            rust-windows-check-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+            rust-windows-check-
 
       - name: Check Windows native tests
         if: steps.select.outputs.run == 'true'
