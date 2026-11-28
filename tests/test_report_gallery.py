@@ -382,3 +382,28 @@ def test_the_gallery_stages_reports_outside_the_output_dir_during_scans(tmp_path
         ]
     )
     assert code == 0 and (out / "index.html").is_file()
+
+
+PAGE_KEYS = """
+import json, sys
+args = sys.argv[1:]
+open(args[args.index("--output") + 1], "w").write("<html></html>")
+frame = {"rules": {}, "explain": {"rows": [1]}}
+print(json.dumps({"status": "PASS", "exit_code": 0, "gaps": [], "frame": frame}))
+"""
+
+
+def test_the_keys_that_only_the_page_needs_stay_out_of_the_json_report_and_the_row(
+    tmp_path: Path,
+) -> None:
+    """AD-1400: the system frame of the page form has `explain`; the JSON report has none."""
+    script = tmp_path / "keys.py"
+    script.write_text(PAGE_KEYS)
+    cli = [sys.executable, str(script)]
+    run = {"name": "n", "command": "report", "root_path": "."}
+    kept = report_gallery._reports(cli, run, tmp_path, "a", "p/")
+    assert json.loads((tmp_path / "a.json").read_text()) == {"rules": {}, "explain": {"rows": [1]}}
+    assert "explain" in kept["frame"]
+    row = report_gallery._reports(cli, run, tmp_path, "b", "p/", page_only=("explain",))
+    assert (tmp_path / "b.json").read_text() == '{"rules":{}}'
+    assert row["frame"] == {"rules": {}}

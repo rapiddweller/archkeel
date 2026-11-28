@@ -142,40 +142,35 @@ def _reports(
     stem: str,
     prefix: str,
     copies: Mapping[str, str] | None = None,
-    own_json_run: bool = False,
+    page_only: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Write both reports of one run as `<stem>.json` and `<stem>.html`. Return its row.
 
     One core run gives both: the page, and the envelope on standard output, whose `frame` is the
-    JSON report byte for byte (AD-1350). Two runs scanned each project twice. The frame of a system
-    run in the page form also holds the `explain` rows, so `own_json_run` asks for the second run.
+    JSON report byte for byte (AD-1350). The frame of a system run in the page form also holds
+    the keys that only the page needs (`explain`, AD-1400): `page_only` names them, and they stay
+    out of the JSON report and the row.
     """
     row: dict[str, Any] = {"run": run, "links": []}
-    # One run in the page form gives the page and the envelope; the JSON file comes from the frame.
-    forms = ("json", "html") if own_json_run else ("html",)
     try:
-        for number, form in enumerate(forms):
-            done = subprocess.run(
-                [
-                    *command(cli, run, folder / f"{stem}.{form}", form),
-                    *([] if number else ["--json"]),
-                ],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                timeout=RUN_TIMEOUT,
-                check=False,
-            )
-            if number == 0:
-                envelope = json.loads(done.stdout)
-                row["summary"] = summarize(envelope)
-                row["frame"] = envelope.get("frame") or {}
-                # A PASS that holds only under premises of the contract says so (AD-736).
-                row["assuming"] = row["frame"].get("assuming")
+        done = subprocess.run(
+            [*command(cli, run, folder / f"{stem}.html", "html"), "--json"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=RUN_TIMEOUT,
+            check=False,
+        )
+        envelope = json.loads(done.stdout)
+        frame = {k: v for k, v in (envelope.get("frame") or {}).items() if k not in page_only}
+        row["summary"] = summarize(envelope)
+        row["frame"] = frame
+        # A PASS that holds only under premises of the contract says so (AD-736): the card shows it.
+        row["assuming"] = frame.get("assuming")
         # A refused scan writes no page and no report.
-        if not own_json_run and (folder / f"{stem}.html").is_file():
-            frame = json.dumps(row["frame"], ensure_ascii=False, separators=(",", ":"))
-            (folder / f"{stem}.json").write_text(frame, encoding="utf-8")
+        if (folder / f"{stem}.html").is_file():
+            text = json.dumps(frame, ensure_ascii=False, separators=(",", ":"))
+            (folder / f"{stem}.json").write_text(text, encoding="utf-8")
     except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError, IndexError) as err:
         row["error"] = f"{type(err).__name__}: {err}"[:300]
     # A link exists only for a file that the CLI wrote.
@@ -353,7 +348,7 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
     except ValueError:
         config = str(document)
     run = {"name": "system", "command": "report", "root_path": ".", "config": config}
-    row = _reports(cli, run, folder, "system", "self/", own_json_run=True)
+    row = _reports(cli, run, folder, "system", "self/", page_only=("explain",))
     page = folder / "system.html"
     if not page.is_file():
         return row

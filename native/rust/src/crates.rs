@@ -263,9 +263,26 @@ impl Workspace {
         let has_lib = targets
             .iter()
             .any(|(target, _)| target.kind == TargetKind::Lib);
+        // Without a library one binary is the main one: the binary with the name of the package, else
+        // the binary of `src/main.rs`. Two roots must not get one module name.
+        let main_bin = (!has_lib).then(|| {
+            let bin = |(target, _): &&(Target, String)| target.kind == TargetKind::Bin;
+            let named = targets
+                .iter()
+                .filter(bin)
+                .position(|(t, _)| t.name == manifest.package);
+            named.or_else(|| {
+                targets
+                    .iter()
+                    .filter(bin)
+                    .position(|(t, _)| is_default_main(&t.path))
+            })
+        });
+        let mut bins = 0;
         for (target, rel) in targets {
-            let main = target.kind == TargetKind::Lib
-                || (!has_lib && target.kind == TargetKind::Bin && target.name == manifest.package);
+            let bin = target.kind == TargetKind::Bin;
+            let main = target.kind == TargetKind::Lib || (bin && main_bin == Some(Some(bins)));
+            bins += usize::from(bin);
             let name = if main {
                 package.clone()
             } else {
@@ -346,6 +363,12 @@ impl Crate {
     }
 }
 
+/// Whether a manifest path is the default root file of a binary. A bin with that path is the main
+/// binary of a package without a library, whatever its name: `fd-find` names its bin `fd`.
+fn is_default_main(path: &str) -> bool {
+    path.trim_start_matches("./") == "src/main.rs"
+}
+
 /// The module name of a target that is not the main one: `crate.bin_tool`, `crate.build_script`.
 fn secondary(package: &str, target: &Target) -> String {
     let name: String = target
@@ -375,11 +398,14 @@ fn declared(manifest: &Manifest, dir: &str, files: &[String]) -> Vec<(Target, St
     });
     targets.extend(manifest.bins.iter().cloned());
     targets.extend(manifest.extra.iter().cloned());
-    targets.push(Target {
-        kind: TargetKind::Bin,
-        name: manifest.package.clone(),
-        path: "src/main.rs".to_owned(),
-    });
+    // A `[[bin]]` that names `src/main.rs` replaces the default binary of the package (#1952).
+    if !manifest.bins.iter().any(|bin| is_default_main(&bin.path)) {
+        targets.push(Target {
+            kind: TargetKind::Bin,
+            name: manifest.package.clone(),
+            path: "src/main.rs".to_owned(),
+        });
+    }
     for (kind, folder) in [
         (TargetKind::Bin, "src/bin"),
         (TargetKind::Test, "tests"),
