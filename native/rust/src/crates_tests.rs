@@ -57,6 +57,44 @@ fn a_package_has_a_primary_root_and_named_secondary_roots() {
 }
 
 #[test]
+fn a_bin_that_names_the_default_main_file_is_the_main_binary_of_a_package_without_a_library() {
+    // `fd-find` names its bin `fd` (#1952): the module is the package, not `bin_fd`.
+    let workspace = found(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"fd-find\"\n[[bin]]\nname = \"fd\"\npath = \"src/main.rs\"\n",
+        ),
+        ("src/main.rs", ""),
+    ]);
+    assert_eq!(workspace.problems, []);
+    let krate = &workspace.crates[0];
+    assert_eq!(roots(krate), [("ns.fd_find", "src/main.rs")]);
+    assert_eq!(
+        krate.primary.as_ref().map(|r| r.module.as_str()),
+        Some("ns.fd_find")
+    );
+}
+
+#[test]
+fn a_bin_with_another_file_stays_a_secondary_root_of_a_package_with_a_library() {
+    let workspace = found(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"my-app\"\n[[bin]]\nname = \"tool\"\npath = \"src/main.rs\"\n",
+        ),
+        ("src/lib.rs", ""),
+        ("src/main.rs", ""),
+    ]);
+    assert_eq!(
+        roots(&workspace.crates[0]),
+        [
+            ("ns.my_app", "src/lib.rs"),
+            ("ns.my_app.bin_tool", "src/main.rs")
+        ]
+    );
+}
+
+#[test]
 fn a_test_target_in_its_own_directory_or_named_by_a_path_is_a_secondary_root() {
     let workspace = found(&[
         (
