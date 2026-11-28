@@ -17,7 +17,6 @@ use crate::script_tree::Tree;
 use crate::script_types::{key_form, Member, Write};
 use crate::script_window::Written;
 use crate::source::Span;
-use crate::tree::cx::Cx;
 
 /// What `_script_declarations` returns.
 pub(crate) struct Declarations {
@@ -154,9 +153,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 .paths
                 .extend(self.write_alias_path(target, &[], None, None));
         }
-        let plain = tree.field(node, F::Right).is_some_and(|value| {
-            crate::script_types::no_function(value, &|n| Cx::unwrapped(&tree.cx, n))
-        });
+        let plain = tree.gives_no_function(node, target);
         let members = found.paths[first..].iter().filter(|path| path.len() > 1);
         let split = if plain {
             &mut found.plain_members

@@ -100,6 +100,24 @@ impl<'a, 't> Tree<'a, 't> {
         self.cx.field(node, field)
     }
 
+    /// Whether the value that the assignment `owner` gives `target` can be no function (AD-1470).
+    /// Only a target that is the whole left side has the right side as its value: a destructuring
+    /// target takes a part of the right side, or a default that the right side does not show.
+    pub(crate) fn gives_no_function(&self, owner: Node<'t>, target: Node<'t>) -> bool {
+        let direct = self
+            .field(owner, F::Left)
+            .is_some_and(|left| self.cx.unwrapped(left).id() == self.cx.unwrapped(target).id());
+        let assignment = matches!(
+            self.k(owner),
+            K::AssignmentExpression | K::AugmentedAssignmentExpression
+        );
+        direct
+            && assignment
+            && self.field(owner, F::Right).is_some_and(|value| {
+                crate::script_types::no_function(value, &|n| self.cx.unwrapped(n))
+            })
+    }
+
     pub(crate) fn span(&self, node: Node) -> Span {
         self.cx.span(node)
     }

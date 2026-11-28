@@ -16,9 +16,13 @@ read every member path as a replacement of its first name (`Error`), without the
    values (`c ? "a" : (d ? "b" : "c")`), or an assignment of one (`a = b = 64`). A value from a call, a name, a member, a
    logical `||` or `&&`, or a choice with one such branch stays a possible function. The rule follows at most 16 nested
    values and then reads the value as a possible function.
-2. The scan of a file (`script_patch.rs`) and the reader of a file outside the scan roots (`script_outside_forms.rs`) use
+2. Only a target that is the whole left side of an assignment has the right side as its value (`Tree::gives_no_function`).
+   A destructuring target takes a part of the value or a default (`[Math.max = hidden] = ""` runs `hidden`), and a loop
+   target takes the values of the loop. They keep the rule of a possible function. The old rule of #1674 had this
+   hole for a literal right side; it is closed too.
+3. The scan of a file (`script_patch.rs`) and the reader of a file outside the scan roots (`script_outside_forms.rs`) use
    the rule, so the two read one source of truth.
-3. The detector for a file outside the scan roots no longer names the first part of a path of two or more names as a
+4. The detector for a file outside the scan roots no longer names the first part of a path of two or more names as a
    replaced global when every write of that path gives a value that is no function (`Script::plain_member_paths`). A
    path that any other write gives a possible function stays a replacement. A path of one name stays a replacement:
    `window.open = "x"` still replaces `open`.
@@ -36,6 +40,8 @@ Before the change two tests fail (the choice of literals, the assignment chain);
 
 - Still held: `= pick()`, `= dark ? "light" : hidden`, `= dark ? hidden : "dark"`, `= other.theme`,
   `= (dark ? "a" : "b") || hidden`, `= value = hidden`, in a scanned file and in a file outside the scan roots.
+- Still held, scanned and outside: `[M = hidden] = flag ? '' : ''`, `[M = hidden] = ''`, `({ a: M = hidden } = {})`,
+  `[M] = [hidden]`, `for (M of [hidden]) {}` with `M = document.documentElement.dataset.theme` (Codex, round 1).
 - Still held outside: `Error.stackTraceLimit = 64;` together with `Error.stackTraceLimit = hidden;` (the path has a second
   write), and with `Error.captureStackTrace = hidden;` (another member).
 

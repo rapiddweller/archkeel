@@ -234,3 +234,22 @@ fn a_path_that_any_other_write_gives_a_function_stays_withheld_outside() {
         ("boot.ts", other_member)
     ]));
 }
+
+#[test]
+fn a_destructuring_target_takes_its_value_from_a_part_or_a_default_not_from_the_right_side() {
+    // The right side is a plain value, but each target gets something else: a default, a part of an
+    // array, the values of a loop. Node runs `hidden` after each of these.
+    for patch in [
+        "[document.documentElement.dataset.theme = hidden] = flag ? '' : '';",
+        "[document.documentElement.dataset.theme = hidden] = '';",
+        "({ a: document.documentElement.dataset.theme = hidden } = {});",
+        "[document.documentElement.dataset.theme] = [hidden];",
+        "for (document.documentElement.dataset.theme of [hidden]) {}",
+    ] {
+        let b = format!("{HIDDEN}declare const flag: boolean;\n{patch}\nexport {{}};\n");
+        assert!(holds_document(&[("src/b.ts", &b)]), "scanned: {patch}");
+        let outside = format!("import {{ hidden }} from './src/b';\nvar flag = 1;\n{patch}\n");
+        let files = [("src/b.ts", HIDDEN), ("boot.ts", outside.as_str())];
+        assert!(holds_document(&files), "outside: {patch}");
+    }
+}
