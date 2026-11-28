@@ -368,9 +368,9 @@ PLANTS: dict[str, dict[str, object]] = {
 # The forms that the core still passes where the truth is FAIL, named in AD-504 and
 # `docs/known-limits.md` and pinned here: a fix removes the name from this set. AD-708 removed
 # `d-S4-attr-through-module` (#1415).
-# AD-1500 (#2240): a `conftest.py` outside the scan roots is test source, so the stated premise of the
-# run covers it, as it covers a file below `tests/`. The plant stays a named open false PASS: pytest
-# runs the write, the product does not.
+# AD-1500 (#2240): a `conftest.py` outside the scan roots is test source, so the stated premise of
+# the run covers it, as it covers a file below `tests/`. The plant stays a named open false PASS:
+# pytest runs the write, the product does not.
 OPEN: frozenset[str] = frozenset({"b-outside-roots-conftest"})
 # AD-770 (#1522, c0962d99a): code outside the scan roots that writes a scan module withholds the
 # routes, so `b-outside-roots-conftest` and `b-outside-roots-sitecustomize` give UNKNOWN now, not
