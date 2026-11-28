@@ -71,6 +71,14 @@ pub(super) fn parts(expr: &Expr) -> Option<Parts<'_>> {
     Some((first, rest, targets.0, values))
 }
 
+#[path = "hazards_class.rs"]
+mod class;
+#[path = "hazards_view.rs"]
+mod view;
+
+pub(in crate::survey) use class::{instances, Classes};
+use view::{Assigns, Facts, View};
+
 #[derive(Default)]
 struct Targets(HashSet<String>);
 
@@ -93,10 +101,9 @@ struct Trojans<'n> {
     /// The attributes that a call or a longer chain reads further: they are no value (AD-1152).
     bases: HashSet<TextRange>,
     reexports: &'n HashMap<String, Vec<String>>,
-    imports: HashMap<String, Vec<String>>,
-    single: &'n HashSet<String>,
+    facts: Facts<'n>,
     visible: &'n HashSet<String>,
-    taken: HashSet<String>,
+    view: View,
     scope: Option<Scope>,
     depth: usize,
     found: Vec<(&'static str, TextRange)>,
@@ -107,7 +114,7 @@ struct Trojans<'n> {
 pub(in crate::survey) fn trojans(
     (tree, module): (&ModModule, &str),
     names: &(HashSet<String>, HashSet<String>, HashSet<String>),
-    reexports: &HashMap<String, Vec<String>>,
+    (reexports, classes): (&HashMap<String, Vec<String>>, &Classes),
 ) -> Vec<(&'static str, TextRange)> {
     // The premise of the run: code outside the scan roots writes no binding of the scan (AD-1053).
     // The name of such a file starts with `<`, which no module of the scan can (`outside.rs`).
@@ -118,32 +125,24 @@ pub(in crate::survey) fn trojans(
     let mut walk = Trojans {
         bases: HashSet::new(),
         reexports,
-        imports: super::bind::bindings(tree),
-        single,
+        facts: Facts {
+            classes,
+            module,
+            imports: super::bind::bindings(tree),
+            single,
+            taken: HashSet::new(),
+        },
+        view: View::default(),
         visible,
-        taken: HashSet::new(),
         scope: None,
         depth: 0,
         found: Vec::new(),
     };
     let mut globals = Declared(HashSet::new());
     globals.visit_body(&tree.body);
-    walk.taken = globals.0;
+    walk.facts.taken = globals.0;
     walk.visit_body(&tree.body);
     walk.found
-}
-
-/// The assignments of a function body, without the bodies of nested functions and classes.
-struct Assigns<'a>(Vec<&'a ruff_python_ast::StmtAssign>);
-
-impl<'a> Visitor<'a> for Assigns<'a> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::FunctionDef(_) | Stmt::ClassDef(_) => {}
-            Stmt::Assign(node) => self.0.push(node),
-            _ => visitor::walk_stmt(self, stmt),
-        }
-    }
 }
 
 /// The names that a `global` or `nonlocal` statement names.
@@ -240,7 +239,7 @@ impl Trojans<'_> {
             };
             let id = Name::as_str(&target.id);
             // The module binds the name once: this assignment is its only binder.
-            let once = !self.taken.contains(id) && self.single.contains(id);
+            let once = !self.facts.taken.contains(id) && self.facts.single.contains(id);
             let plain =
                 matches!(&*node.value, Expr::StringLiteral(t) if !reflective(t.value.to_str()));
             if once && plain {
@@ -256,6 +255,18 @@ impl Trojans<'_> {
         matches!(key, Expr::StringLiteral(text) if self.reexports.contains_key(text.value.to_str()))
     }
 
+    /// A read of a re-exported module name that no call or chain reads further, on a receiver
+    /// that can be a module (AD-1152, AD-1540).
+    fn reads_module(&self, expr: &Expr) -> bool {
+        let Expr::Attribute(node) = expr else {
+            return false;
+        };
+        node.ctx == ExprContext::Load
+            && self.reexports.contains_key(node.attr.as_str())
+            && !self.bases.contains(&expr.range())
+            && !self.view.other(&self.facts, &node.value)
+    }
+
     /// `vars(m)` and `m.__dict__` of a name that an import binds to a module with hazard names.
     fn module_value(&self, view: &Expr) -> bool {
         let base = match view {
@@ -264,7 +275,7 @@ impl Trojans<'_> {
             _ => return false,
         };
         let Expr::Name(name) = base else { return false };
-        let origins = self.imports.get(Name::as_str(&name.id));
+        let origins = self.facts.imports.get(Name::as_str(&name.id));
         origins.is_some_and(|all| all.iter().any(|origin| module_hazard(origin).is_some()))
     }
 
@@ -352,12 +363,15 @@ impl<'a> Visitor<'a> for Trojans<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         let outer = self.scope.take();
         let depth = self.depth;
+        let saved = self.view.clone();
+        self.view.enter(&self.facts, stmt, depth);
         match stmt {
             Stmt::FunctionDef(def) => {
                 self.depth += 1;
                 // Only an outermost function has a proof; a nested one has none (it can rebind).
                 self.scope = (depth == 0).then(|| self.scope_of(def));
             }
+            Stmt::ClassDef(_) => self.scope = outer.clone(),
             Stmt::ImportFrom(node) => {
                 // `from inspect import getmembers as gm`: the alias hides each later use.
                 let named = node
@@ -373,6 +387,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
         visitor::walk_stmt(self, stmt);
         self.depth = depth;
         self.scope = outer;
+        self.view.leave(stmt, depth, saved);
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
@@ -387,9 +402,7 @@ impl<'a> Visitor<'a> for Trojans<'_> {
                 .map(Ranged::range),
         );
         // A re-exported module that is read as a value flows on unseen: `cp = util.cp`.
-        if matches!(expr, Expr::Attribute(node) if node.ctx == ExprContext::Load && self.reexports.contains_key(node.attr.as_str()))
-            && !self.bases.contains(&expr.range())
-        {
+        if self.reads_module(expr) {
             self.found.push(("module_value", expr.range()));
         }
         match expr {

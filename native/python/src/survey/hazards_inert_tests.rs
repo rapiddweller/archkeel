@@ -10,6 +10,8 @@ use crate::survey::hazards_split::split;
 
 #[path = "hazards_importers_tests.rs"]
 mod importers;
+#[path = "hazards_module_value_tests.rs"]
+mod module_value;
 #[path = "hazards_modules_get_tests.rs"]
 mod modules_get;
 #[path = "hazards_proved_tests.rs"]
