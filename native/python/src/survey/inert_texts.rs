@@ -11,7 +11,7 @@
 //! hook, a metaclass, a rebound name), so it keeps the site.
 //!
 //! A string literal is inert when it stands in a comparison that:
-//! - is the operand right after `type(name) is str` in an `and` chain (nothing stands between, so
+//! - stands in a function body (a module or class namespace can be a mapping of user code), and is the operand right after `type(name) is str` in an `and` chain (nothing stands between, so
 //!   the name cannot be written in between), with one operator and the name on the left; and
 //! - is `name in D`, `name not in D`, `name == "text"` or `name != "text"`, where `D` is a string
 //!   literal, a set, tuple or list display of string literals only (or `frozenset`, `set`, `tuple`
@@ -54,6 +54,7 @@ pub(super) fn ranges(modules: &[Module], binders: &[Binders]) -> Vec<HashSet<Tex
         .map(|((module, binders), candidates)| {
             let mut found = HashSet::new();
             let mut tests = Tests {
+                scopes: Vec::new(),
                 visible: &|name| binders.builtin_visible(name),
                 found: &mut found,
                 uses: HashMap::new(),
@@ -201,14 +202,22 @@ impl<'a> Visitor<'a> for Outside<'_, '_> {
 
 /// The guarded tests of the module, and for each name: its loads and the loads that stand in a guarded test.
 struct Tests<'f> {
+    /// The scopes that hold the walk: true for a function body, false for a class body.
+    scopes: Vec<bool>,
     visible: &'f dyn Fn(&str) -> bool,
     found: &'f mut HashSet<TextRange>,
     uses: HashMap<String, (usize, usize)>,
 }
 
 impl Tests<'_> {
-    /// `type(name) is str and name in D`: the comparison right after the proof.
+    /// `type(name) is str and name in D`: the comparison right after the proof. Only a function body
+    /// proves it: a name of a module or class body can be read through a mapping that user code
+    /// supplies (`__prepare__` of a metaclass, `exec` with a mapping), and then two reads of one
+    /// name differ.
     fn guard(&mut self, values: &[Expr]) {
+        if self.scopes.last() != Some(&true) {
+            return;
+        }
         for pair in values.windows(2) {
             let Some(proven) = exact_str(&pair[0], self.visible) else {
                 continue;
@@ -267,6 +276,28 @@ fn exact_str<'e>(value: &'e Expr, visible: &dyn Fn(&str) -> bool) -> Option<&'e 
 }
 
 impl<'a> Visitor<'a> for Tests<'_> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        match stmt {
+            Stmt::FunctionDef(node) => {
+                // The decorators, the defaults and the annotations run in the enclosing scope.
+                node.decorator_list
+                    .iter()
+                    .for_each(|item| self.visit_decorator(item));
+                self.visit_parameters(&node.parameters);
+                node.returns.iter().for_each(|item| self.visit_expr(item));
+                self.scopes.push(true);
+                self.visit_body(&node.body);
+                self.scopes.pop();
+            }
+            Stmt::ClassDef(_) => {
+                self.scopes.push(false);
+                visitor::walk_stmt(self, stmt);
+                self.scopes.pop();
+            }
+            _ => visitor::walk_stmt(self, stmt),
+        }
+    }
+
     fn visit_expr(&mut self, expr: &'a Expr) {
         match expr {
             Expr::BoolOp(node) if node.op == BoolOp::And => self.guard(&node.values),

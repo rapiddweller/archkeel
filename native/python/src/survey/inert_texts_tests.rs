@@ -82,6 +82,12 @@ fn every_other_test_of_a_reserved_name_keeps_the_site() {
         "def f(n):\n    return type(n) is str and n in {\"__globals__\", other()}\n",
         "def f(n):\n    return type(n) is str and n in {\"__globals__\", n}\n",
         "def f(n):\n    return type(n) is str and n in {\"__globals__\": 1}\n",
+        // The names of a module or a class body can be read through a mapping of user code.
+        "n = \"x\"\nok = type(n) is str and n in {\"__globals__\"}\n",
+        "class C:\n    n = \"x\"\n    ok = type(n) is str and n in {\"__globals__\"}\n",
+        "def f(n):\n    class C:\n        ok = type(n) is str and n == \"__globals__\"\n",
+        "def f(n=(type(1) is str and n in {\"__globals__\"})):\n    return n\n",
+        "def f(n):\n    return n\n\n\nclass C:\n    @(lambda g: g)\n    def m(self, k=type(n) is str and n in {\"__globals__\"}):\n        return k\n",
         // Any other place.
         "getattr(obj, \"__globals__\")\n",
         "hasattr(obj, \"__import__\")\n",

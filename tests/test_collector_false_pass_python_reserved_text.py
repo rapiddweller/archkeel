@@ -72,7 +72,20 @@ MATCH = (
     "        return 1\n\n\n"
     "def run():\n    match C():\n        case C(value):\n            return value\n\n\n"
 )
+PREPARE = (
+    "class Space(dict):\n    reads = 0\n\n    def __getitem__(self, key):\n"
+    "        if key != 'n':\n            return super().__getitem__(key)\n"
+    "        self.reads += 1\n        return 'x' if self.reads == 1 else Lookup()\n\n\n"
+    "class Meta(type):\n    @classmethod\n    def __prepare__(mcls, name, bases):\n"
+    "        return Space()\n\n\n"
+    "def run():\n    class C(metaclass=Meta):\n"
+    "        ok = type(n) is str and n == '__globals__'\n\n\n"
+)
 PLANTS = {
+    "class body whose namespace answers differently the second time": (
+        quiet(EQ + PREPARE, "run()"),
+        "",
+    ),
     "class attribute that a match statement reads by itself": (quiet(MATCH, "run()"), ""),
     "comparison chain that shares the literal": (
         quiet(EQ, "'_' in '__globals__' == Lookup()"),
