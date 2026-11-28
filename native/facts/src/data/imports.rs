@@ -45,6 +45,9 @@ facts_data! {
         [live never] route_withheld: Option<RouteWithheld>,
         /// The hop or the module that the cause names.
         [live never] route_withheld_at: Option<String>,
+        /// The hops of the route that the collector could not prove, through each re-export
+        /// (also under another name): the names that the held route may reach (#2203).
+        [live never] route_withheld_hops: Option<Vec<String>>,
         /// `false` when the collector proves only the first hops of `reexport_chain`: a later
         /// hop may follow (AD-604). Absent: the route is complete, or there is none.
         [read skip] route_complete: Option<bool>,
@@ -127,6 +130,7 @@ impl ImportData {
             route_complete: None,
             route_withheld: None,
             route_withheld_at: None,
+            route_withheld_hops: None,
             published_as: None,
             other_crate: None,
             inferred_receiver: false,
