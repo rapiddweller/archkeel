@@ -34,12 +34,8 @@ AT_LIMIT_LISTED = 30
 CYCLE_KIND = "no_component_cycles"
 NEAR_LIMIT = MAX_FILE_LINES * 9 // 10
 EXIT_OF = {word: code for code, (word, _) in EXIT_TABLE.items()}
-# The three checks, the folder of each result, and whether `archkeel report --json` wraps the frame.
-PARTS = (
-    ("native", "validation-native", True),
-    ("shell", "validation-shell", True),
-    ("system", "validation-system", False),
-)
+# The one result: the frame of the system run, which holds the parts (AD-1380).
+RESULT = "validation-system"
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -49,19 +45,16 @@ def read(path: Path) -> dict[str, Any]:
     return document
 
 
-def frame_of(document: dict[str, Any], wrapped: bool) -> dict[str, Any]:
-    """The frame of a result: `archkeel report --json` wraps it, `--output` writes it bare."""
-    found = document.get("frame", {}) if wrapped else document
-    return found if isinstance(found, dict) else {}
-
-
-def verdict(name: str, document: dict[str, Any] | None, wrapped: bool) -> str:
+def verdict(document: dict[str, Any] | None) -> str:
+    """The status of the system and of each part, or why there is no result."""
     if document is None:
-        return f"{name} has no result"
+        return "system has no result"
     if refusal := document.get("refusal"):
-        return f"{name} REFUSED ({one(refusal.get('kind'))})"
-    status = str(frame_of(document, wrapped).get("status"))
-    return f"{name} {status} (exit {EXIT_OF.get(status, '?')})"
+        return f"system REFUSED ({one(refusal.get('kind'))})"
+    status = str(document.get("status"))
+    parts = ((document.get("system") or {}).get("parts")) or []
+    each = "".join(f" | {part['id']} {part['status']}" for part in parts)
+    return f"system {status} (exit {EXIT_OF.get(status, '?')}){each}"
 
 
 def where(frame: dict[str, Any], evidence: list[str], fallback: str = "?") -> str:
@@ -199,18 +192,13 @@ def cycles(frames: dict[str, dict[str, Any]]) -> list[str]:
 
 
 def summary(dir_: Path, root: Path, status: int, log: str) -> list[str]:
-    results: dict[str, dict[str, Any] | None] = {}
-    for name, part, _wrapped in PARTS:
-        try:
-            results[name] = read(dir_ / part / "result.json")
-        except (OSError, ValueError):
-            results[name] = None
-    frames = {
-        name: frame_of(results[name] or {}, True) for name, _part, wrapped in PARTS if wrapped
-    }
-    frames = {name: frame for name, frame in frames.items() if frame}
+    try:
+        result: dict[str, Any] | None = read(dir_ / RESULT / "result.json")
+    except (OSError, ValueError):
+        result = None
+    frames = {"system": result} if result and not result.get("refusal") else {}
     violation_lines, found = violations(frames)
-    lines = ["self-check: " + " | ".join(verdict(n, results[n], w) for n, _p, w in PARTS)]
+    lines = ["self-check: " + verdict(result)]
     lines += violation_lines
     lines.append("  next: fix each violation." if found else "  next: none.")
     lines += unknown_causes(frames)

@@ -3,7 +3,7 @@
 The Rust workspace in `native/` holds the collectors that read source for Archkeel.
 Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
-Run `make self-validate-native` to check it. The target runs the default `archkeel validate`,
+Run `make self-validate` to check it. The target runs the system check, which scans this workspace as its Rust core part,
 which the core decides ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
 
 The contract states the order first ([AD-588](decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md)).

@@ -96,8 +96,7 @@ def test_the_text_stays_within_40_lines_for_the_largest_input(tmp_path: Path) ->
         cycle_sizes=(2, 3, 4, 5, 6),
         rules=rules,
     )
-    write(tmp_path, "native", envelope(big))
-    write(tmp_path, "shell", envelope(big))
+    big["system"] = {"parts": [{"id": "core", "status": "FAIL"}, {"id": "shell", "status": "FAIL"}]}
     write(tmp_path, "system", big)
     files = {f"src/over{i}.py": 520 for i in range(6)}
     files |= {f"src/near{i}.py": 500 for i in range(70)}
@@ -105,22 +104,20 @@ def test_the_text_stays_within_40_lines_for_the_largest_input(tmp_path: Path) ->
     lines = tool.summary(tmp_path, root, 1, "x.log")
     assert len(lines) <= tool.MAX_LINES, "\n".join(lines)
     assert sum(line.startswith("  next:") for line in lines) == 5
-    assert (
-        lines[0] == "self-check: native FAIL (exit 1) | shell FAIL (exit 1) | system FAIL (exit 1)"
-    )
-    assert "violations: 24" in lines
-    assert "  and 20 more" in lines  # the violations of the two frames, 4 shown
+    assert lines[0] == "self-check: system FAIL (exit 1) | core FAIL | shell FAIL"
+    assert "violations: 12" in lines
+    assert "  and 8 more" in lines  # 4 shown
     assert any(line.startswith("size (measured") and "6 files over it" in line for line in lines)
     assert any("70 files at 450 to 500 lines; 70 at 500: src/near0.py" in line for line in lines)
     assert any(" and 40 more" in line for line in lines)
-    assert any("cycle: native R-CYCLES: 2 members" in line for line in lines)
+    assert any("cycle: system R-CYCLES: 2 members" in line for line in lines)
     assert lines[-1] == "self-validate exit 1 (the gate); full output: x.log"
 
 
 def test_the_counts_equal_the_counts_of_the_result_files(tmp_path: Path) -> None:
     inner = frame(status="UNKNOWN", causes=3, violations=2, modules=4)
     inner["explained"] = {"R-A": "w", "R-B": "w"}
-    write(tmp_path, "native", envelope(inner))
+    write(tmp_path, "system", inner)
     root = repository(tmp_path, {})
     lines = tool.summary(tmp_path, root, 0, "x.log")
     assert "violations: 2" in lines
@@ -131,9 +128,9 @@ def test_the_counts_equal_the_counts_of_the_result_files(tmp_path: Path) -> None
         f"unknown causes (measured, gaps per cause; top 3 of 3 causes, {total} gaps; 2 rules wait):"
         in lines
     )
-    assert "  native fan-in: m3 3, m2 2, m1 1" in lines
-    assert "  native fan-out: m0 3, m1 2, m2 1" in lines
-    assert lines[0].startswith("self-check: native UNKNOWN (exit 2) | shell has no result")
+    assert "  system fan-in: m3 3, m2 2, m1 1" in lines
+    assert "  system fan-out: m0 3, m1 2, m2 1" in lines
+    assert lines[0] == "self-check: system UNKNOWN (exit 2)"
 
 
 def test_a_gap_without_subjects_keeps_its_cause_and_gate_result(tmp_path: Path) -> None:
@@ -142,7 +139,7 @@ def test_a_gap_without_subjects_keeps_its_cause_and_gate_result(tmp_path: Path) 
         {"kind": "collection_gap", "subjects": [], "reason": "no place", "evidence": []},
         {"kind": "collection_gap", "subjects": [], "reason": "has place", "evidence": ["EVD-1"]},
     ]
-    write(tmp_path, "native", envelope(inner))
+    write(tmp_path, "system", inner)
     root = repository(tmp_path, {})
     lines = tool.summary(tmp_path, root, 1, "x.log")
     assert "  1 x no place (first: no subject)" in lines

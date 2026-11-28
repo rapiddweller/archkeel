@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-432, AD-478, AD-492: a self-check target fails without a usable result of the core."""
+"""AD-432, AD-478, AD-492, AD-1380: the self-check fails without a usable result of the core."""
 
 import os
 import subprocess
@@ -16,7 +16,7 @@ ROOT = Path(__file__).parents[1]
 REFUSED = '{"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_error", "message": "x"}}'
 
 
-def test_native_self_check_requests_timings_only_when_given_a_path(tmp_path: Path) -> None:
+def test_the_self_check_requests_timings_only_when_given_a_path(tmp_path: Path) -> None:
     timings = tmp_path / "phase timings.json"
     for value in ("", str(timings)):
         result = subprocess.run(
@@ -25,7 +25,7 @@ def test_native_self_check_requests_timings_only_when_given_a_path(tmp_path: Pat
                 "-n",
                 "-o",
                 "core",
-                "self-validate-native",
+                "self-validate-system",
                 f"NATIVE_SELFCHECK_TIMINGS={value}",
             ],
             cwd=ROOT,
@@ -39,22 +39,24 @@ def test_native_self_check_requests_timings_only_when_given_a_path(tmp_path: Pat
 
 
 @pytest.mark.parametrize(
-    ("target", "printed", "shown"),
+    ("written", "shown"),
     [
-        ("self-validate-native", REFUSED, "the result is a refusal: core_error: x"),
-        ("self-validate-native", "", "is empty or corrupt"),
-        ("self-validate-shell", REFUSED, "the result is a refusal: core_error: x"),
-        ("self-validate-shell", "", "is empty or corrupt"),
+        (REFUSED, "the result is a refusal: core_error: x"),
+        ("", "is empty or corrupt"),
+        (None, "is missing or unreadable"),
     ],
 )
 def test_a_self_check_without_a_usable_core_result_fails(
-    tmp_path: Path, target: str, printed: str, shown: str
+    tmp_path: Path, written: str | None, shown: str
 ) -> None:
-    """AD-432: a refusal or no result of `archkeel validate` never passes a self-check gate."""
+    """AD-432: a refusal or no result of the system run never passes the self-check gate."""
     uv = tmp_path / "uv"
+    write = "" if written is None else f"printf '%s' '{written}' > \"$out\"; "
     uv.write_text(
         '#!/bin/sh\ncase "$*" in\n'
-        f"  *archkeel\\ report*) printf '%s' '{printed}'; exit 2;;\n"
+        '  *archkeel\\ report*) for a in "$@"; do '
+        '[ "$prev" = --output ] && out=$a; prev=$a; done; '
+        f"{write}exit 2;;\n"
         f'  *) shift 3; exec "{sys.executable}" "$@";;\n'
         "esac\n"
     )
@@ -76,7 +78,7 @@ def test_a_self_check_without_a_usable_core_result_fails(
         subprocess.run(["git", *git], cwd=tmp_path, env=env, check=True, capture_output=True)
     result = run_bounded(
         ["make", "-f", str(ROOT / "Makefile"), "-o", "core", "-o", "browser-runtime-install"]
-        + [target, f"UV={uv}"],
+        + ["self-validate-system", f"UV={uv}"],
         cwd=tmp_path,
         env=env,
         capture_output=True,
