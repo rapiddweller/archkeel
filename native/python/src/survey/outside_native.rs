@@ -200,6 +200,44 @@ fn ident(byte: u8) -> bool {
 }
 
 impl RustLexer {
+    /// The state after `byte` in a raw string (`r#"..."#`), or `None` when the `r` was no prefix.
+    fn raw(&self, byte: u8) -> Option<Lex> {
+        match (self.state, byte) {
+            (Lex::RawHash(hashes), b'#') => Some(Lex::RawHash(hashes + 1)),
+            (Lex::RawHash(hashes), b'"') => Some(Lex::Raw {
+                hashes,
+                closing: None,
+            }),
+            (Lex::Raw { hashes: 0, .. }, b'"') => Some(Lex::Code),
+            (Lex::Raw { hashes, .. }, b'"') => Some(Lex::Raw {
+                hashes,
+                closing: Some(0),
+            }),
+            (
+                Lex::Raw {
+                    hashes,
+                    closing: Some(seen),
+                },
+                b'#',
+            ) if seen + 1 == hashes => Some(Lex::Code),
+            (
+                Lex::Raw {
+                    hashes,
+                    closing: Some(seen),
+                },
+                b'#',
+            ) => Some(Lex::Raw {
+                hashes,
+                closing: Some(seen + 1),
+            }),
+            (Lex::Raw { hashes, .. }, _) => Some(Lex::Raw {
+                hashes,
+                closing: None,
+            }),
+            _ => None,
+        }
+    }
+
     /// True when `byte` is part of a comment.
     fn comment(&mut self, byte: u8) -> bool {
         let comment = self.step(byte);
@@ -242,60 +280,13 @@ impl RustLexer {
                 (Lex::Str, b'"') => (Lex::Code, false),
                 (Lex::Str, _) => (Lex::Str, false),
                 (Lex::StrEscape, _) => (Lex::Str, false),
-                (Lex::RawHash(hashes), b'#') => (Lex::RawHash(hashes + 1), false),
-                (Lex::RawHash(0), b'"') => (
-                    Lex::Raw {
-                        hashes: 0,
-                        closing: None,
-                    },
-                    false,
-                ),
-                (Lex::RawHash(hashes), b'"') => (
-                    Lex::Raw {
-                        hashes,
-                        closing: None,
-                    },
-                    false,
-                ),
-                (Lex::RawHash(_), _) => {
-                    self.state = Lex::Code;
-                    continue;
-                }
-                (Lex::Raw { hashes: 0, .. }, b'"') => (Lex::Code, false),
-                (Lex::Raw { hashes, .. }, b'"') => (
-                    Lex::Raw {
-                        hashes,
-                        closing: Some(0),
-                    },
-                    false,
-                ),
-                (
-                    Lex::Raw {
-                        hashes,
-                        closing: Some(seen),
-                    },
-                    b'#',
-                ) if seen + 1 == hashes => (Lex::Code, false),
-                (
-                    Lex::Raw {
-                        hashes,
-                        closing: Some(seen),
-                    },
-                    b'#',
-                ) => (
-                    Lex::Raw {
-                        hashes,
-                        closing: Some(seen + 1),
-                    },
-                    false,
-                ),
-                (Lex::Raw { hashes, .. }, _) => (
-                    Lex::Raw {
-                        hashes,
-                        closing: None,
-                    },
-                    false,
-                ),
+                (Lex::RawHash(_) | Lex::Raw { .. }, _) => match self.raw(byte) {
+                    Some(next) => (next, false),
+                    None => {
+                        self.state = Lex::Code;
+                        continue;
+                    }
+                },
                 (Lex::Quote, b'\\') => (Lex::CharEscape, false),
                 (Lex::Quote, b'\'') => (Lex::Code, false),
                 (Lex::Quote, _) => (Lex::CharOne, false),
