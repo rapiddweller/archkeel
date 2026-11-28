@@ -148,10 +148,7 @@ struct References {
 fn references_of(parsers: &mut Parsers, rel: &str, data: &[u8]) -> References {
     let lower = rel.to_ascii_lowercase();
     if lower.ends_with(".html") || lower.ends_with(".htm") {
-        return References {
-            found: page_references(data),
-            incomplete: None,
-        };
+        return page_references(rel, data);
     }
     let Some(suffix) = classify_file(rel) else {
         return nothing();
@@ -280,6 +277,43 @@ fn call(node: Node<'_>, data: &[u8], rel: &str, line: usize, out: &mut Reference
                 }
             }
         }
+        ("member_expression", Some(text)) => member_call(text, arguments, data, rel, line, out),
+        _ => {}
+    }
+}
+
+/// A call `object.name(…)` that loads code or makes a script: `createElement("script")`,
+/// `serviceWorker.register("…")` and `document.write`.
+fn member_call(
+    text: &[u8],
+    arguments: Node<'_>,
+    data: &[u8],
+    rel: &str,
+    line: usize,
+    out: &mut References,
+) {
+    let text = String::from_utf8_lossy(text);
+    let name = text.rsplit('.').next().unwrap_or_default();
+    match name {
+        "createElement" | "createElementNS" => {
+            let tag = arguments
+                .named_child(usize::from(name == "createElementNS"))
+                .and_then(|first| literal(first, data));
+            // A tag that is no literal is not examined (AD-1460, "Not done"): a helper such as
+            // `element(tag)` is the plain form of a page, and the scan cannot bound its callers.
+            if tag.is_some_and(|tag| tag.eq_ignore_ascii_case("script")) {
+                note(out, rel, line, "a script element that code creates");
+            }
+        }
+        "register" if text.ends_with("serviceWorker.register") => {
+            match path_argument(arguments, data) {
+                Some(path) => out.found.push(path),
+                None => note(out, rel, line, "a service worker path that is no literal"),
+            }
+        }
+        "write" | "writeln" if text.trim() == format!("document.{name}") => {
+            note(out, rel, line, "a document.write that can load a script");
+        }
         _ => {}
     }
 }
@@ -289,11 +323,12 @@ fn note(out: &mut References, rel: &str, line: usize, what: &str) {
         .get_or_insert_with(|| format!("{rel}:{line} has {what}"));
 }
 
-/// The script paths of a page: `src` of each `<script>` and `href` of each modulepreload link.
-fn page_references(data: &[u8]) -> Vec<String> {
+/// The paths that a page loads: `src` of each `<script>` and `<iframe>` and `href` of each
+/// modulepreload link. A `<base>` and an import map change what a path means, so they are not read.
+fn page_references(rel: &str, data: &[u8]) -> References {
     let text = String::from_utf8_lossy(data);
     let lower = text.to_ascii_lowercase();
-    let mut found = Vec::new();
+    let mut out = nothing();
     let mut at = 0;
     while let Some(start) = lower[at..].find('<').map(|offset| offset + at) {
         let tag_end = lower[start..]
@@ -313,18 +348,36 @@ fn page_references(data: &[u8]) -> Vec<String> {
                 .find(|(key, _)| key == wanted)
                 .map(|(_, value)| value.clone())
         };
+        let line = text[..start].matches('\n').count().saturating_add(1);
         match name.as_str() {
-            "script" => found.extend(attribute("src")),
+            "base" => note(
+                &mut out,
+                rel,
+                line,
+                "a <base> element that changes every path",
+            ),
+            "script"
+                if attribute("type").is_some_and(|kind| kind.eq_ignore_ascii_case("importmap")) =>
+            {
+                note(
+                    &mut out,
+                    rel,
+                    line,
+                    "an import map that maps names to paths",
+                );
+            }
+            "script" => out.found.extend(attribute("src")),
+            "iframe" => out.found.extend(attribute("src")),
             "link"
                 if attribute("rel")
                     .is_some_and(|rel| rel.eq_ignore_ascii_case("modulepreload")) =>
             {
-                found.extend(attribute("href"));
+                out.found.extend(attribute("href"));
             }
             _ => {}
         }
     }
-    found
+    out
 }
 
 /// The `name=value` pairs of a tag: a name is lower case, a value may be quoted or bare.

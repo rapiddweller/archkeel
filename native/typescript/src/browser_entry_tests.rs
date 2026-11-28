@@ -150,12 +150,69 @@ fn a_remote_script_is_covered_by_the_premise_and_not_followed() {
 }
 
 #[test]
-fn the_page_reads_script_and_modulepreload_and_not_data_attributes() {
+fn the_page_reads_script_iframe_and_modulepreload_and_not_data_attributes() {
     let page = "<script data-src='/no.js'></script><script SRC=/yes.js defer></script>\
                 <link rel=modulepreload href='/pre.js'><link rel=stylesheet href='/c.css'>\
-                <script>inline()</script>";
-    assert_eq!(
-        super::page_references(page.as_bytes()),
-        ["/yes.js", "/pre.js"]
+                <iframe src=/frame.html></iframe><script>inline()</script>";
+    let found = super::page_references("p.html", page.as_bytes());
+    assert_eq!(found.found, ["/yes.js", "/pre.js", "/frame.html"]);
+    assert!(found.incomplete.is_none());
+}
+
+#[test]
+fn a_base_element_and_an_import_map_hold_every_global_because_they_change_what_a_path_means() {
+    for page in [
+        "<base href=/other/><script src=/boot.js></script>",
+        "<script type=importmap>{\"imports\":{}}</script><script src=/boot.js></script>",
+    ] {
+        let found = super::page_references("p.html", page.as_bytes());
+        assert!(found.incomplete.is_some(), "{page}");
+    }
+}
+
+#[test]
+fn code_that_makes_a_script_or_registers_a_worker_is_followed_or_holds_every_global() {
+    // A script that a loaded file creates can load any file: the scope never narrows past it.
+    for (boot, cause) in [
+        (
+            "document.createElement('script').src = '/x.js';\n",
+            "script element that code creates",
+        ),
+        (
+            "document.createElementNS(ns, 'script');\n",
+            "script element that code creates",
+        ),
+        (
+            "document.write('<script src=/x.js></script>');\n",
+            "document.write",
+        ),
+        (
+            "navigator.serviceWorker.register(path);\n",
+            "service worker path that is no literal",
+        ),
+    ] {
+        let titles = withheld(&[("web/boot.js", boot)], true);
+        let held = titles
+            .iter()
+            .find(|title| title.starts_with("Script global Math has no native proof"));
+        assert!(held.is_some(), "{boot}: Math is held: {titles:?}");
+        assert!(
+            held.is_some_and(|title| title.contains(cause)),
+            "{boot}: {titles:?}"
+        );
+    }
+    // A literal service worker is a loaded file; a div is no script.
+    let boot = "navigator.serviceWorker.register('/sw.js');\ndocument.createElement('div');\n\
+                document.createElement(tag);\n";
+    let titles = withheld(&[("web/boot.js", boot), ("web/sw.js", WRITES_OPEN)], true);
+    assert!(
+        holds(&titles, "open"),
+        "the service worker is read: {titles:?}"
+    );
+    assert!(
+        titles
+            .iter()
+            .all(|title| !title.contains("no native proof")),
+        "{titles:?}"
     );
 }

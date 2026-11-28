@@ -15,15 +15,15 @@ folder name can hide a file that ships.
 
 1. A TypeScript part states `browser_entry` (an HTML page) and optionally `browser_assets` (folders, default the folder
    of the page). The core derives the browser files: the page, its `<script src>` and modulepreload links, and from each
-   loaded script the `import`, `export … from`, `import("…")`, `importScripts("…")` and `new Worker("…")` with a
-   literal path, transitively. A path that starts with `/` is searched in each assets folder in order; a relative path
+   loaded script the `import`, `export … from`, `import("…")`, `importScripts("…")`, `new Worker("…")` and
+   `serviceWorker.register("…")` with a literal path, and `<iframe src>`, transitively. A path that starts with `/` is searched in each assets folder in order; a relative path
    is resolved against the URL of the file that names it. A URL outside the repository is code outside the repository,
    which the premise covers.
 2. The guard reads the loaded files outside the scan roots, and nothing else. A loaded file stays in whatever its place.
    Node preloads are not read for such a part: they run in no browser.
 3. Nothing narrows silently. A missing entry or assets folder refuses the run. A reference that cannot be followed (a
-   path in no folder, a bare name, a path that is no literal, a file that cannot be read or parsed, more than 2,000
-   files) is the cause of the run: no global has a native proof, and the gap names the file and the reference.
+   path in no folder, a bare name, a path that is no literal, a `<base>` or an import map, a script element that code
+   creates, a `document.write`, a file that cannot be read or parsed, more than 2,000 files) is the cause of the run: no global has a native proof, and the gap names the file and the reference.
 4. A part without `browser_entry` behaves as before.
 
 The collection request carries `resolver.browser` (`entry`, `assets`) only when it is stated, like `bundler`. The frame
@@ -41,9 +41,21 @@ schema is regenerated.
   `window.close` does not hold `close`; without an entry both hold (the control).
 - `./deep.js` is relative to the URL of the file that names it, not to the page.
 - `import("/a" + x)`, a path in no folder, `import "lodash"` and a worker path that is no literal each hold every global.
+- `document.createElement("script")`, `document.write` and a service worker path that is no literal hold every global
+  (a loaded file can load any file by them); a literal service worker path is followed; `createElement("div")` is no script, and a tag that is no literal is not examined (see "Not done").
+- A `<base>` element and an import map hold every global; an `<iframe src>` is followed.
 - A missing entry refuses; assets without an entry, a path with `..` and a non-TypeScript part are invalid.
 
 ## Not done
+
+A script element whose tag is chosen at run time (`document.createElement(tag)`) is not examined. A helper such as the
+`element(tag)` of `studio-dom.ts` is the plain form of a page, and holding it would keep Studio UNKNOWN for a form that
+no caller uses with `"script"`. A caller that builds a script element through such a helper and loads a repository file
+that no entry names is a false PASS that this record accepts as a documented limit. The owner decides if it is too wide.
+
+A file that a loaded script fetches and runs through `eval` or `Function` is not followed. The guard already holds every
+global for a loaded file outside the scan roots that runs code (`eval`, `Function`); a scanned file keeps the rule of the
+scan. A server that adds scripts the page does not name is outside the repository.
 
 The loaded ELK bundle (`elkjs-0.12.0.bundled.js`) stays unproven: it spawns a worker with a path that is no literal
 and the guard cannot bound its writes (see the owner note on ELK). The two layout scripts that Studio now scans bring
