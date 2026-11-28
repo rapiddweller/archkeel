@@ -43,8 +43,6 @@ fn a_new_mapping_is_fresh() {
     for source in [
         "def f(text):\n    return eval(text, {})\n",
         "def f(text):\n    exec(text, {'a': 1}, {})\n",
-        "def f(text):\n    return eval(text, dict(a=1))\n",
-        "def f(text, ns):\n    return eval(text, globals=dict(ns))\n",
     ] {
         assert_eq!(one(source), Some(SiteNamespace::Fresh), "{source}");
     }
@@ -93,6 +91,12 @@ fn a_mapping_of_unknown_origin_is_unknown_and_a_spread_hides_the_arguments() {
         // A method or a parameter named `globals` is not the builtin.
         "def f(text, box):\n    exec(text, box.globals())\n",
         "def f(text, globals):\n    exec(text, globals())\n",
+        // `dict(...)` is no dict display: a module can bind the name `dict`.
+        "def f(text):\n    return eval(text, dict(a=1))\n",
+        "dict = lambda: globals()\n\ndef f(text):\n    exec(text, dict())\n",
+        // A collection that is not spelled `sys.modules` is not the import system.
+        "def f(text, modules):\n    exec(text, modules['safe'])\n",
+        "def f(text, box):\n    exec(text, box.modules['safe'])\n",
         // A fresh globals with a locals that is not proved.
         "def f(text, ns):\n    exec(text, {}, ns)\n",
     ] {

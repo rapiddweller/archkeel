@@ -6,7 +6,8 @@
 //!
 //! A contract that declares a site as user code claims that this code changes no module of the
 //! product. A call that hands the names of the product to it contradicts that claim: the code can
-//! write them. The class is a fact about the call, never about the text that it runs.
+//! write them. The class is a fact about the call, never about the text that it runs. Only a dict
+//! display is `fresh`; the spelled names of the product are `shared`; the rest is `unknown`.
 
 use archkeel_facts::data::TrojanHorseForm;
 use archkeel_facts::vocab::SiteNamespace;
@@ -70,29 +71,28 @@ pub(super) fn of(call: &ExprCall, builtin: &dyn Fn(&str) -> bool) -> SiteNamespa
 fn class(expression: &Expr, builtin: &dyn Fn(&str) -> bool) -> SiteNamespace {
     match expression {
         Expr::Dict(_) => SiteNamespace::Fresh,
-        // A helper counts only as the builtin: an import, a parameter or a method of the name is
-        // not proved to build, or to return, what the builtin does.
+        // One class rule: only a dict display is `fresh`, because nothing can shadow it. Every
+        // other mapping is `unknown`, except the spelled forms of the names of the product, which
+        // are `shared`. `shared` makes a contract refuse, so a spelled form may refuse a record
+        // that a shadowed name would have saved; it never saves one that it should refuse.
         Expr::Call(call) => match &*call.func {
             Expr::Name(name) if builtin(name.id.as_str()) => match name.id.as_str() {
-                "dict" => SiteNamespace::Fresh,
                 "globals" | "locals" | "vars" => SiteNamespace::Shared,
                 _ => SiteNamespace::Unknown,
             },
             _ => SiteNamespace::Unknown,
         },
         Expr::Attribute(node) if node.attr.as_str() == "__dict__" => SiteNamespace::Shared,
-        Expr::Subscript(node) if is_modules(&node.value) => SiteNamespace::Shared,
+        Expr::Subscript(node) if is_sys_modules(&node.value) => SiteNamespace::Shared,
         _ => SiteNamespace::Unknown,
     }
 }
 
-/// True for `sys.modules` and for `modules` as a name.
-fn is_modules(expression: &Expr) -> bool {
-    match expression {
-        Expr::Name(node) => node.id.as_str() == "modules",
-        Expr::Attribute(node) => node.attr.as_str() == "modules",
-        _ => false,
-    }
+/// True for the spelling `sys.modules`.
+fn is_sys_modules(expression: &Expr) -> bool {
+    matches!(expression, Expr::Attribute(node)
+        if node.attr.as_str() == "modules"
+            && matches!(&*node.value, Expr::Name(base) if base.id.as_str() == "sys"))
 }
 
 #[cfg(test)]
