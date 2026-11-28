@@ -45,7 +45,10 @@ impl Collection<'_> {
             let reason = format!("more than {BUDGET} installed files");
             self.closure_gaps(&entries, |_| Some((String::new(), reason.clone())));
         }
-        self.tool_preloads();
+        // AD-1420: a Node preload runs in no browser; a part with an entry page has none.
+        if self.request.resolver.browser.is_none() {
+            self.tool_preloads();
+        }
     }
     fn tool_preloads(&mut self) {
         let named = self.named_preloads();

@@ -71,6 +71,21 @@
           "default": false,
           "description": "TypeScript only. Treat bundler-resolved imports (tsconfig paths, package export conditions, CSS/asset/JSON imports) as known. Requires compilerOptions.moduleResolution bundler. Asserts that the bundler's aliases match tsconfig paths; not verified."
         },
+        "browser_entry": {
+          "$ref": "#/$defs/relativePath",
+          "not": {
+            "const": "."
+          },
+          "description": "TypeScript only (AD-1460). The HTML page that this part ships to a browser. The core derives the browser scope from the scripts that the page loads, transitively: a file that no entry loads is not browser code of this part. An entry that cannot be read refuses the run."
+        },
+        "browser_assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "description": "TypeScript only, with browser_entry. The folders that serve a script path of the page, searched in order. Default: the folder of the page."
+        },
         "rust_type_reach": {
           "type": "boolean",
           "default": false,
@@ -134,6 +149,16 @@
                 {
                   "required": [
                     "bundler"
+                  ]
+                },
+                {
+                  "required": [
+                    "browser_entry"
+                  ]
+                },
+                {
+                  "required": [
+                    "browser_assets"
                   ]
                 }
               ]

@@ -32,6 +32,7 @@ fn request(tree: &Tree) -> TypeScriptRequest {
         resolver: TypeScriptSettings {
             tsconfig: "tsconfig.json".to_owned(),
             bundler: false,
+            browser: None,
         },
     }
 }

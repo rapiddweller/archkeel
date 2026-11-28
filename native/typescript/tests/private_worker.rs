@@ -35,6 +35,7 @@ fn private_worker_preserves_the_typed_reply_of_the_reference_project() {
         resolver: TypeScriptSettings {
             tsconfig: "tsconfig.json".to_owned(),
             bundler: false,
+            browser: None,
         },
     };
     assert_worker_matches(&request, false).unwrap();
@@ -62,6 +63,7 @@ fn private_worker_preserves_excluded_test_sources() {
         resolver: TypeScriptSettings {
             tsconfig: "tsconfig.json".to_owned(),
             bundler: false,
+            browser: None,
         },
     };
     assert_worker_matches(&request, true).unwrap();

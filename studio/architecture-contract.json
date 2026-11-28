@@ -471,6 +471,27 @@
       ],
       "requires": [],
       "decided_by": "architect"
+    },
+    {
+      "id": "STUDIO-LAYOUT",
+      "label": "layout",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "studio.native.report.assets.explorer.report_x2d_layout_x2e_js",
+        "studio.native.report.assets.explorer.report_x2d_placement_x2e_js"
+      ],
+      "responsibilities": [
+        "Place the boxes of a view with the pinned ELK engine and route the relationships between them."
+      ],
+      "forbidden_responsibilities": [
+        "Decide architecture rules or collect source facts."
+      ],
+      "provenance": [
+        "studio/architecture.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "rules": [

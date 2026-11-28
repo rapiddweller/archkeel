@@ -15,7 +15,7 @@ use toml::{Table, Value};
 
 /// The fields that `[scan]` must have and may have (`_REQUIRED_SCAN`, `_OPTIONAL_SCAN`).
 const REQUIRED: [&str; 3] = ["roots", "namespace", "contract"];
-const OPTIONAL: [&str; 11] = [
+const OPTIONAL: [&str; 13] = [
     "language",
     "tsconfig",
     "collector_argv",
@@ -23,6 +23,9 @@ const OPTIONAL: [&str; 11] = [
     "collector_timeout_seconds",
     "bundler",
     "exclude_test_sources",
+    // AD-1420: the page that the part ships to a browser, and the folders that serve its `src`.
+    "browser_entry",
+    "browser_assets",
     "python",
     "import_roots_ambiguous",
     // AD-1047: the Rust scan asks for the compiler type-reach facts.
@@ -61,6 +64,15 @@ pub(crate) struct Config {
     pub python: Option<String>,
     pub import_roots_ambiguous: bool,
     pub rust_type_reach: bool,
+    /// The browser entry of a TypeScript part (AD-1420).
+    pub browser: Option<Browser>,
+}
+
+/// The page that a part ships to a browser, and the folders that serve its `src` paths.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Browser {
+    pub entry: String,
+    pub assets: Vec<String>,
 }
 
 fn invalid(text: &str) -> Refused {
@@ -83,7 +95,8 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         return Err(invalid(
             "[scan] requires roots, namespace, and contract; language, tsconfig, \
              collector_argv, collector_output_limit_bytes, collector_timeout_seconds, \
-             bundler, exclude_test_sources, python, import_roots_ambiguous and root are optional",
+             bundler, exclude_test_sources, browser_entry, browser_assets, python, import_roots_ambiguous \
+             and root are optional",
         ));
     }
     stated_root(scan)?;
@@ -122,6 +135,7 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         false,
     )?);
     let rust_type_reach = type_reach_flag(scan, language)?;
+    let browser = browser(scan, language)?;
     let exclude_test_sources = flag(
         scan,
         "exclude_test_sources",
@@ -162,7 +176,40 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         python,
         import_roots_ambiguous,
         rust_type_reach,
+        browser,
     })
+}
+
+/// AD-1420: `browser_entry` names the HTML page of the part; `browser_assets` names the folders
+/// that serve its `src` paths, and defaults to the folder of the page.
+fn browser(scan: &Table, language: &str) -> Result<Option<Browser>, Refused> {
+    let stated = scan.contains_key("browser_entry") || scan.contains_key("browser_assets");
+    if stated && language != "typescript" {
+        return Err(invalid(
+            "scan.browser_entry is only valid when scan.language is typescript",
+        ));
+    }
+    let Some(entry) = scan.get("browser_entry") else {
+        if stated {
+            return Err(invalid("scan.browser_assets needs scan.browser_entry"));
+        }
+        return Ok(None);
+    };
+    let entry = posix(&safe_path(entry, "scan.browser_entry", false)?);
+    let assets = match scan.get("browser_assets") {
+        None => vec![posix(
+            entry.rsplit_once('/').map_or(".", |(folder, _)| folder),
+        )],
+        Some(Value::Array(items)) if !items.is_empty() => {
+            let mut folders = Vec::with_capacity(items.len());
+            for item in items {
+                folders.push(posix(&safe_path(item, "scan.browser_assets item", true)?));
+            }
+            folders
+        }
+        Some(_) => return Err(invalid("scan.browser_assets must be a non-empty list")),
+    };
+    Ok(Some(Browser { entry, assets }))
 }
 
 fn type_reach_flag(scan: &Table, language: &str) -> Result<bool, Refused> {

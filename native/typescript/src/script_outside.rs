@@ -16,6 +16,7 @@
 
 use std::collections::BTreeMap;
 
+use archkeel_facts::request::BrowserSettings;
 use archkeel_snapshot::paths::{join, within};
 use archkeel_snapshot::Snapshot;
 use tree_sitter::Node;
@@ -93,9 +94,23 @@ pub(crate) fn read(
     parsers: &mut Parsers,
     roots: &[String],
     preloads: &[String],
+    browser: Option<&BrowserSettings>,
 ) -> Outside {
     let mut found = Outside::default();
-    let mut files = outside_files(snapshot, roots);
+    let mut files = match browser {
+        // AD-1420: the files that the entry page loads are the browser code of the part.
+        Some(browser) => {
+            let loaded = crate::browser_entry::closure(snapshot, parsers, browser);
+            found.incomplete = loaded.incomplete;
+            let inside = |path: &str| roots.iter().any(|root| within(root, path));
+            loaded
+                .files
+                .into_iter()
+                .filter(|rel| !inside(rel) && outside_source(rel))
+                .collect()
+        }
+        None => outside_files(snapshot, roots),
+    };
     Vec::extend(&mut files, preloads.iter().cloned());
     let count = Vec::len(&files);
     // The code address of a data file below a scan root (#1662, AD-810).

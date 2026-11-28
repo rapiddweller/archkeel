@@ -15,6 +15,7 @@
 mod ancestors;
 mod bind_kinds;
 mod bound_names;
+mod browser_entry;
 mod cited;
 mod class_data;
 mod class_members;

@@ -32,6 +32,7 @@ fn a_typescript_scan_gives_its_settings_with_the_python_defaults() {
             python: None,
             import_roots_ambiguous: false,
             rust_type_reach: false,
+            browser: None,
         })
     );
     let set = typescript(
@@ -215,4 +216,64 @@ fn the_type_reach_key_is_a_boolean_of_a_rust_scan_only() {
     ] {
         assert!(matches!(bad, Err(Refused::Invalid(_))));
     }
+}
+
+// AD-1420: the page that a part ships to a browser. The assets default to the folder of the page.
+#[test]
+fn a_browser_entry_names_its_page_and_the_folders_that_serve_its_src() {
+    let config = typescript("browser_entry = \"web/./index.html\"\n").unwrap();
+    assert_eq!(
+        config.browser,
+        Some(Browser {
+            entry: "web/index.html".to_owned(),
+            assets: vec!["web".to_owned()]
+        })
+    );
+    let config =
+        typescript("browser_entry = \"index.html\"\nbrowser_assets = [\"web\", \"./lib/\"]\n")
+            .unwrap();
+    let browser = config.browser.unwrap();
+    assert_eq!(browser.assets, ["web", "lib"]);
+    // A page at the top of the repository is served from the top.
+    let top = typescript("browser_entry = \"index.html\"\n")
+        .unwrap()
+        .browser
+        .unwrap();
+    assert_eq!(top.assets, ["."]);
+    assert_eq!(typescript("").unwrap().browser, None);
+}
+
+#[test]
+fn a_browser_entry_that_is_not_valid_is_refused_and_never_ignored() {
+    for (extra, message) in [
+        (
+            "browser_assets = [\"web\"]\n",
+            "scan.browser_assets needs scan.browser_entry",
+        ),
+        (
+            "browser_entry = \"../x.html\"\n",
+            "scan.browser_entry must be a safe POSIX relative path",
+        ),
+        (
+            "browser_entry = \"x.html\"\nbrowser_assets = []\n",
+            "scan.browser_assets must be a non-empty list",
+        ),
+        (
+            "browser_entry = \"x.html\"\nbrowser_assets = [\"/abs\"]\n",
+            "scan.browser_assets item must be a safe POSIX relative path",
+        ),
+    ] {
+        assert_eq!(
+            typescript(extra),
+            Err(Refused::Invalid(message.to_owned())),
+            "{extra}"
+        );
+    }
+    let python = format!("{BASE}language = \"python\"\nbrowser_entry = \"x.html\"\n");
+    assert_eq!(
+        parsed(&python),
+        Err(Refused::Invalid(
+            "scan.browser_entry is only valid when scan.language is typescript".to_owned()
+        ))
+    );
 }
