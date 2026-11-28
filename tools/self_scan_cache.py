@@ -74,8 +74,8 @@ PRELOAD_PREFIXES = (
     "mocha.config.",
 )
 # The tree is hashed file by file: a larger tree is not hashed, so the caller scans.
-# `tools/rustc-facts` pins the same channel (a test in `archkeel-collect` checks it); asking there would
-# make rustup fetch its components for a run that reuses the result.
+# `tools/rustc-facts` pins the same channel (a test in `archkeel-collect` checks it); asking
+# there would make rustup fetch its components for a run that reuses the result.
 TOOLCHAIN_DIRS = ("native",)
 MAX_FILES = 200_000
 MAX_DEPTH = 100
