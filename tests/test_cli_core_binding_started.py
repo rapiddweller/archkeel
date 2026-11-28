@@ -66,7 +66,7 @@ class _Clock:
 
 def _linux(monkeypatch: pytest.MonkeyPatch, clock: _Clock, wait: float = 0.1) -> None:
     monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(time, "clock_gettime_ns", clock.read)
+    monkeypatch.setattr(time, "clock_gettime_ns", clock.read, raising=False)
     monkeypatch.setattr(time, "sleep", clock.sleep)
     monkeypatch.setattr("archkeel.cli.core_binding._TICK_WAIT_S", wait)
 
