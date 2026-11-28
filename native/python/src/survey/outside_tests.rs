@@ -227,6 +227,8 @@ fn a_word_in_a_rust_comment_names_no_module() {
         "fn f<'a>(x: &'a str) {} // app.lib\n",
         "let q = '\"'; // app.lib\n",
         "let u = '\\'';  // app.lib\n",
+        "let e = 'é'; // app.lib\n",
+        "let e = '😀'; /* app.lib */\n",
     ] {
         assert!(!rust_names(text), "{text}");
     }
@@ -247,6 +249,8 @@ fn a_word_in_rust_code_still_names_the_module_whatever_a_comment_precedes() {
         "fn f() { let s = \"a\\\"//\"; m(\"app.lib\"); }\n",
         "#[doc = \"app.lib\"]\nfn f() {}\n",
         "fn f<'a>(x: &'a str) { m(\"app.lib\"); }\n",
+        "take!('é' \"//\" \"app.lib\")\n",
+        "take!('😀' \"/*\" \"app.lib\")\n",
     ] {
         assert!(rust_names(text), "{text}");
     }

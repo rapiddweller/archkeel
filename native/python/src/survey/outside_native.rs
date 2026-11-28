@@ -291,6 +291,8 @@ impl RustLexer {
                 (Lex::Quote, b'\'') => (Lex::Code, false),
                 (Lex::Quote, _) => (Lex::CharOne, false),
                 (Lex::CharOne, b'\'') => (Lex::Code, false),
+                // The rest of a character that UTF-8 writes in more than one byte.
+                (Lex::CharOne, 0x80..=0xBF) => (Lex::CharOne, false),
                 (Lex::CharOne, _) => {
                     // A lifetime, not a character: the byte is code.
                     self.state = Lex::Code;
