@@ -2712,10 +2712,18 @@
             "native.archkeel_model:Graph",
             "native.archkeel_model:Hygiene",
             "native.archkeel_model:Measures",
+            "native.archkeel_model:Model",
             "native.archkeel_model:ModelTree",
             "native.archkeel_model:Reason",
             "native.archkeel_model:gap_kind",
             "native.archkeel_model:stable"
+          ]
+        },
+        {
+          "component": "model-proof",
+          "rationale": "Ask the scope of a model for every cause of a rule (AD-1330). The call is written as `Model::scope(model, ..)` so that the scan names the callee.",
+          "through": [
+            "native.archkeel_model.scope"
           ]
         },
         {

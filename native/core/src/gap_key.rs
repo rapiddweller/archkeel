@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::head_of;
 use archkeel_facts::{FactData, GapFact, Record};
-use archkeel_model::{ModelTree, Reason};
+use archkeel_model::{Model, ModelTree, Reason};
 use archkeel_report::{RuleReasons, Ruling};
 use archkeel_store::Ingested;
 
@@ -115,7 +115,7 @@ fn other_causes<'a>(
             let Some(shown) = ruling.causes().get(id) else {
                 continue;
             };
-            let all = model.scope(|scope| scope.causes(rule));
+            let all = Model::scope(model, |scope| scope.causes(rule));
             if all.first() == Some(shown) && all.len() > 1 {
                 found.insert(id, all.into_iter().skip(1).collect());
             }

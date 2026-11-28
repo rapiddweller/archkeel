@@ -101,6 +101,21 @@ jobs:
           NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate
 
+      # AD-1450: main saves the result of the self-scan under the key of its inputs. Only a run that passed the gate
+      # reaches this step, and the tool refuses a result that does not show its inputs covered.
+      - id: selfscan
+        name: Save the self-scan result under the key of its inputs
+        run: |
+          key=$(python3 tools/self_scan_cache.py save --result test-artifacts/validation-system/result.json --dir "$RUNNER_TEMP/selfscan") \
+            && echo "key=$RUNNER_OS-$key" >> "$GITHUB_OUTPUT" || echo "The self-scan result is not saved: its inputs are not covered."
+
+      - name: Keep the self-scan result for the pull requests
+        if: steps.selfscan.outputs.key != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/selfscan
+          key: ${{ steps.selfscan.outputs.key }}
+
       - name: Record native self-check phase timings
         if: always()
         run: |
