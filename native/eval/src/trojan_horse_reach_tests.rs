@@ -49,6 +49,19 @@ fn trojan_horse(reply: &mut Value) {
     );
 }
 
+/// The problems with the list of the sites of an unmatched declaration left out.
+fn plain(problems: &[(String, TrojanHorseProblem)]) -> Vec<(String, TrojanHorseProblem)> {
+    problems
+        .iter()
+        .map(|(id, problem)| match problem {
+            TrojanHorseProblem::Unmatched(_) => {
+                (id.clone(), TrojanHorseProblem::Unmatched(String::new()))
+            }
+            other => (id.clone(), other.clone()),
+        })
+        .collect()
+}
+
 /// A declaration of the trojan horse at `site` (extra fields) that loads `loads`.
 fn declared(id: &str, site: Value, loads: &[&str]) -> Value {
     let mut item = json!({"id": id, "module": INDEX, "trojan_horse": "eval", "loads": loads,
@@ -76,7 +89,7 @@ fn run(declarations: Vec<Value>) -> Found {
 fn run_with(declarations: Vec<Value>, reply_change: impl FnOnce(&mut Value)) -> Found {
     let declarations_of = declarations.clone();
     let contract = contract(move |value: &mut Value| {
-        value["schema_version"] = json!("3.15.0");
+        value["schema_version"] = json!("3.20.0");
         value["declarations"] = json!({"trojan_horse_reach": declarations_of});
     })
     .expect("the contract parses");
@@ -225,11 +238,11 @@ fn a_declaration_that_matches_no_trojan_horse_is_a_problem_and_changes_nothing()
     let stale = [
         (
             declared("D-MOVED", json!({"line": 8}), &[]),
-            TrojanHorseProblem::Unmatched,
+            TrojanHorseProblem::Unmatched(String::new()),
         ),
         (
             declared("D-SCOPE", json!({"scope": "Other.run"}), &[]),
-            TrojanHorseProblem::Unmatched,
+            TrojanHorseProblem::Unmatched(String::new()),
         ),
         (
             {
@@ -237,7 +250,7 @@ fn a_declaration_that_matches_no_trojan_horse_is_a_problem_and_changes_nothing()
                 item["trojan_horse"] = json!("exec");
                 item
             },
-            TrojanHorseProblem::Unmatched,
+            TrojanHorseProblem::Unmatched(String::new()),
         ),
         (
             {
@@ -263,7 +276,7 @@ fn a_declaration_that_matches_no_trojan_horse_is_a_problem_and_changes_nothing()
     for (item, problem) in stale {
         let id = item["id"].as_str().unwrap_or_default().to_owned();
         let found = run(vec![item]);
-        assert_eq!(found.problems, [(id.clone(), problem)], "{id}");
+        assert_eq!(plain(&found.problems), [(id.clone(), problem)], "{id}");
         assert!(found.applied.is_empty(), "{id}");
         assert_held_by_trojan_horse(&found);
     }
@@ -363,4 +376,93 @@ fn a_trojan_horse_binding_that_another_module_imports_is_not_applied() {
         trojan_horses(reply, vec![trojan_horse_gap(ID, site)]);
     };
     assert_eq!(run_with(vec![item], free).applied, ["D-LOAD"]);
+}
+
+/// Two `eval` sites of `Calc.run` at the lines 7 and 9, or `lines`.
+fn calc_sites(lines: &'static [u32]) -> impl FnOnce(&mut Value) {
+    move |reply: &mut Value| {
+        let gaps = lines
+            .iter()
+            .enumerate()
+            .map(|(index, line)| {
+                let site = json!({"form": "eval", "line": line, "scope": "Calc.run"});
+                trojan_horse_gap(&format!("UNKNOWN-00000000000000e{index}"), site)
+            })
+            .collect();
+        trojan_horses(reply, gaps);
+    }
+}
+
+#[test]
+fn an_edit_above_the_site_moves_the_line_and_a_declaration_with_a_scope_still_applies() {
+    // AD-1480: the site is at line 7 of the module level; the hint says 99, as after an edit.
+    let found = run(vec![declared(
+        "D-EVAL",
+        json!({"scope": "", "line": 99}),
+        &[],
+    )]);
+    assert_eq!(found.applied, ["D-EVAL"], "{:?}", found.problems);
+    assert!(found.problems.is_empty());
+    assert_eq!(word(&found, "DOMAIN-NO-DATA"), "PASS");
+    // Without a scope the line must still be exact: the old declaration does not apply.
+    let strict = run(vec![declared("D-EVAL", json!({"line": 99}), &[])]);
+    assert!(strict.applied.is_empty());
+    assert_held_by_trojan_horse(&strict);
+}
+
+#[test]
+fn a_site_that_moved_to_another_function_is_a_named_gap_that_lists_the_sites() {
+    let found = run_with(
+        vec![declared(
+            "D-EVAL",
+            json!({"scope": "Calc.other", "line": 7}),
+            &[],
+        )],
+        calc_sites(&[7]),
+    );
+    assert!(found.applied.is_empty());
+    assert_eq!(
+        found.problems,
+        [(
+            "D-EVAL".to_owned(),
+            TrojanHorseProblem::Unmatched("line 7 scope Calc.run".to_owned())
+        )]
+    );
+    assert!(found.run.is_err(), "the site holds the run");
+}
+
+#[test]
+fn a_scope_that_holds_more_sites_than_declared_needs_the_line_or_the_count() {
+    let stale_hint = declared("D-EVAL", json!({"scope": "Calc.run", "line": 50}), &[]);
+    let found = run_with(vec![stale_hint.clone()], calc_sites(&[7, 9]));
+    assert!(found.applied.is_empty());
+    assert_eq!(
+        found.problems,
+        [("D-EVAL".to_owned(), TrojanHorseProblem::Ambiguous(2))]
+    );
+    // The line picks one of them.
+    let by_line = declared("D-EVAL", json!({"scope": "Calc.run", "line": 9}), &[]);
+    assert_eq!(
+        run_with(vec![by_line], calc_sites(&[7, 9])).applied,
+        ["D-EVAL"]
+    );
+    // The count says that the declaration holds for both, wherever they are.
+    let mut counted = stale_hint;
+    counted["count"] = json!(2);
+    let found = run_with(vec![counted.clone()], calc_sites(&[7, 9]));
+    assert_eq!(found.applied.len(), 2, "{:?}", found.problems);
+    // A third site in the scope makes the number differ: the declaration is reviewed again.
+    let found = run_with(vec![counted.clone()], calc_sites(&[7, 9, 11]));
+    assert!(found.applied.is_empty());
+    assert_eq!(
+        found.problems,
+        [("D-EVAL".to_owned(), TrojanHorseProblem::Ambiguous(3))]
+    );
+    // A deleted site makes the number smaller: no match, no silent PASS.
+    let found = run_with(vec![counted], calc_sites(&[7]));
+    assert!(found.applied.is_empty());
+    assert!(matches!(
+        found.problems.as_slice(),
+        [(_, TrojanHorseProblem::Unmatched(_))]
+    ));
 }

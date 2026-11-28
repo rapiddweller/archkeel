@@ -435,6 +435,13 @@ named defect and is never applied; without a declaration a trojan horse stays UN
 `trojan_horse_reach[]` and the text list name the `rationale` of each applied declaration, so a reader sees
 the id, the site and the reason next to the verdict.
 
+A record that has a `scope` is anchored by the module, the form or `name`, and the scope (AD-1480); its `line`
+is only a hint. An edit above the site moves the line, and the declaration still applies when the scope holds
+exactly `count` such sites (one by default). When the scope holds more, the line picks among them; if it does not
+pick exactly `count`, the record is `trojan_horse_reach.ambiguous`. A site that moved to another function or class,
+or that was deleted, gives `trojan_horse_reach.unmatched`, and its row lists the sites of the module with that name. A
+record without a `scope` still needs the exact `line`. The scope of a module-level site is the empty text.
+
 For a computed TypeScript `import()`, use `loader` and name its module and line. The collector
 does not state the enclosing scope, so a scope selector does not match.
 Use qualified module names or prefixes, not the import specifier text. The frame lists scanned

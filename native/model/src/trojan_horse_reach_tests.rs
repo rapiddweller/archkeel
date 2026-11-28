@@ -13,7 +13,7 @@ use super::{Applied, TrojanHorseProblem};
 fn each_problem_has_its_code_and_says_that_it_is_not_applied() {
     let problems = [
         (
-            TrojanHorseProblem::Unmatched,
+            TrojanHorseProblem::Unmatched(String::new()),
             "trojan_horse_reach.unmatched",
         ),
         (

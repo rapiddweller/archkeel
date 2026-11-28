@@ -128,8 +128,7 @@ Steps, each measured on the copy:
 
 1. Set `schema_version` to `3.20.0` and add one `declarations.trojan_horse_reach` record for each loader
    site that the core names. Without them the verdicts are 176 PASS, 99 UNKNOWN, 1 FAIL. With 84 records
-   they are 213, 62, 1. A record names a site by module, name and line, so an edit of a declared file
-   moves the site: write the records again.
+   they are 213, 62, 1. Give each record the `scope` of its site (the dotted names of the classes and functions that hold it; empty text at module level): then the `line` is only a hint and an edit above the site does not stop the declaration (AD-1480). A record without a `scope` needs the exact line, so an edit of the file moves the site: write the record again.
 2. Decide the three `INTERFACES-ONLY` reads (CE issue 741): publish the names or remove the reads.
    The baseline would accept them as debt, and the CE gate accepts none.
 3. Run `archkeel validate --write-baseline known-violations.json`. The file is deterministic: two runs give

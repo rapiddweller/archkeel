@@ -725,6 +725,7 @@
         "native.archkeel_model.condensation",
         "native.archkeel_model.constructs",
         "native.archkeel_model.cycles",
+        "native.archkeel_model.door_match",
         "native.archkeel_model.door_reach",
         "native.archkeel_model.edges",
         "native.archkeel_model.gaps",

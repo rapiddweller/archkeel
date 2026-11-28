@@ -35,11 +35,12 @@ record!(
         /// `__self__`). Contract 3.20.0 (AD-1052).
         #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
         site_name: Option<String>,
-        /// How many sites the module has with this name, line and scope; the declaration
-        /// applies to all of them or to none. Contract 3.20.0.
+        /// How many sites the module has with this name and scope (and line, when the record has no
+        /// scope); the declaration applies to all of them or to none. Contract 3.20.0.
         #[serde(rename = "count", skip_serializing_if = "Option::is_none")]
         site_count: Option<u64>,
-        /// The line of the site, counted from 1.
+        /// The line of the site, counted from 1. With a `scope` it is only a hint (AD-1480): the site
+        /// is named by its module, form or name, and scope.
         #[serde(skip_serializing_if = "Option::is_none")]
         line: Option<u64>,
         /// The dotted names of the classes and functions that hold the site; empty text is the

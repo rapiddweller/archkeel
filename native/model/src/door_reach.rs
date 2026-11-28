@@ -7,6 +7,10 @@
 //! or by name, and the prefixes that it may load or change. A declaration that matches its sites
 //! with a valid reach is applied; each other one is a problem and applies nothing. It reads
 //! collector metadata, not source code.
+//!
+//! AD-1480: a declaration with a `scope` is anchored by module, name or form, and scope; its `line`
+//! is a hint. An edit above the site moves the line and the declaration still applies. Without a
+//! `scope` the line must equal the line of the site, as before.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -16,7 +20,7 @@ use archkeel_facts::envelope::{Facts, FileFact};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::ModuleName;
 
-use crate::coverage::data_of;
+use crate::door_match::{near, sites_of, trojan_horse, TrojanHorse};
 use crate::gap_class::EffectGap;
 use crate::imports::{Import, Published, Resolved};
 use crate::ownership::in_scope;
@@ -77,8 +81,9 @@ impl Applied {
 /// Why one declaration is not applied.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TrojanHorseProblem {
-    /// No trojan horse of the reply has this site: it moved, changed its form or is gone.
-    Unmatched,
+    /// No trojan horse of the reply has this site: it moved to another scope, changed its form or
+    /// is gone. The text lists the sites of the module with this name or form (may be empty).
+    Unmatched(String),
     /// More than one trojan horse has this site: their number.
     Ambiguous(usize),
     /// The site has more than one declaration: the ids of the others.
@@ -101,7 +106,7 @@ impl TrojanHorseProblem {
     /// The stable code of the problem, for its row.
     pub fn code(&self) -> &'static str {
         match self {
-            TrojanHorseProblem::Unmatched => "trojan_horse_reach.unmatched",
+            TrojanHorseProblem::Unmatched(_) => "trojan_horse_reach.unmatched",
             TrojanHorseProblem::Ambiguous(_) => "trojan_horse_reach.ambiguous",
             TrojanHorseProblem::Repeated(_) => "trojan_horse_reach.repeated",
             TrojanHorseProblem::Form
@@ -116,12 +121,20 @@ impl TrojanHorseProblem {
     /// What the problem is, for a reader.
     pub fn text(&self) -> String {
         match self {
-            TrojanHorseProblem::Unmatched => "matches no trojan horse of the scan: no site of the module has this name, line \
-                 and scope. A name is the text that the collector prints for the site \
-                 (`importlib.util`, `pickle.loads`), not the name that an import binds (`iu`); the \
-                 site can also have moved or be gone; the declaration is not applied"
-                .to_owned(),
-            TrojanHorseProblem::Ambiguous(n) => format!("matches {n} trojan horses; name the site by its line; the declaration is not applied"),
+            TrojanHorseProblem::Unmatched(near) => {
+                let base = "matches no trojan horse of the scan: no site of the module has this name \
+                     and scope (a `line` is only a hint when the declaration has a `scope`). A name \
+                     is the text that the collector prints for the site (`importlib.util`, \
+                     `pickle.loads`), not the name that an import binds (`iu`); the site can also \
+                     have moved to another function or class, or be gone; the declaration is not \
+                     applied";
+                if near.is_empty() {
+                    base.to_owned()
+                } else {
+                    format!("{base}. The module has: {near}")
+                }
+            }
+            TrojanHorseProblem::Ambiguous(n) => format!("matches {n} trojan horses; name the site by its scope and its line, or state `count`; the declaration is not applied"),
             TrojanHorseProblem::Repeated(o) => format!("names a trojan horse that {} also name; the declarations of the trojan horse are not applied", o.join(", ")),
             TrojanHorseProblem::Form => format!(
                 "names no form of a trojan horse; the forms are {}; the declaration is not applied",
@@ -187,20 +200,6 @@ pub(crate) fn narrowed(trojan_horses: &TrojanHorses, gaps: Vec<EffectGap>) -> Ve
         .collect()
 }
 
-/// One trojan horse of the reply.
-struct TrojanHorse<'f> {
-    gap: &'f str,
-    module: &'f str,
-    form: Option<TrojanHorseForm>,
-    name: Option<&'f str>,
-    line: u32,
-    scope: Option<&'f str>,
-    exposed: &'f [String],
-    effect: &'f GapEffect,
-    evidence: Vec<String>,
-    binding: Option<&'f str>,
-}
-
 /// Match the declarations to the trojan horses of `facts`.
 pub(crate) fn matched(
     declared: &[Declaration],
@@ -221,31 +220,32 @@ pub(crate) fn matched(
             let id = declaration.id().as_text().to_owned();
             found.problems.push((index, id, problem))
         };
-        let sites: Vec<&TrojanHorse<'_>> = if String::is_empty(declaration.trojan_horse()) {
-            trojan_horses
-                .iter()
-                .filter(|horse| named(horse, declaration))
-                .collect()
+        let form = if String::is_empty(declaration.trojan_horse()) {
+            None
         } else {
             let Some(form) = TrojanHorseForm::of_word(declaration.trojan_horse()) else {
                 problem(&mut found, TrojanHorseProblem::Form);
                 continue;
             };
-            trojan_horses
-                .iter()
-                .filter(|horse| at(horse, declaration, form))
-                .collect()
+            Some(form)
         };
         let count = (*declaration.site_count()).map_or(1, |n| usize::try_from(n).unwrap_or(0));
+        let sites = sites_of(&trojan_horses, declaration, form, count);
         match sites.as_slice() {
-            [] => problem(&mut found, TrojanHorseProblem::Unmatched),
+            [] => problem(
+                &mut found,
+                TrojanHorseProblem::Unmatched(near(&trojan_horses, declaration, form)),
+            ),
             many if many.len() == count => {
                 for horse in many {
                     by_gap.entry(horse.gap).or_default().push(index);
                     matches.push((index, horse));
                 }
             }
-            many if many.len() < count => problem(&mut found, TrojanHorseProblem::Unmatched),
+            many if many.len() < count => problem(
+                &mut found,
+                TrojanHorseProblem::Unmatched(near(&trojan_horses, declaration, form)),
+            ),
             many => problem(&mut found, TrojanHorseProblem::Ambiguous(many.len())),
         }
     }
@@ -295,55 +295,6 @@ pub(crate) fn matched(
     found.imports.sort_by(|a, b| a.id.cmp(&b.id));
     found.imports.dedup_by(|a, b| a.id == b.id);
     found
-}
-
-/// The trojan horse of a gap, when the collector marks one and names its module and its effect.
-fn trojan_horse(gap: &archkeel_facts::Record<archkeel_facts::GapFact>) -> Option<TrojanHorse<'_>> {
-    let data = data_of(&gap.data);
-    let site = data.trojan_horse.as_ref()?;
-    Some(TrojanHorse {
-        gap: gap.id.as_str(),
-        module: data.module.as_ref()?.as_str(),
-        form: site.form,
-        name: Option::as_deref(&site.site_name),
-        exposed: &site.exposed_to,
-        line: site.line,
-        scope: (!site.line_only).then(|| site.scope.as_deref().unwrap_or("")),
-        effect: data.effect.as_ref()?,
-        evidence: gap
-            .evidence_ids
-            .iter()
-            .map(|id| id.as_str().to_owned())
-            .collect(),
-        binding: site.binding.as_deref(),
-    })
-}
-
-/// True when the declaration names this trojan horse by form, line and scope.
-fn at(horse: &TrojanHorse<'_>, declaration: &Declaration, form: TrojanHorseForm) -> bool {
-    horse.module == declaration.module().as_text()
-        && horse.form == Some(form)
-        && declaration
-            .line()
-            .is_none_or(|line| u64::from(horse.line) == line)
-        && declaration
-            .scope()
-            .as_deref()
-            .is_none_or(|scope| horse.scope == Some(scope))
-}
-
-/// True when the declaration names this trojan horse by name, line and scope (AD-1052).
-fn named(horse: &TrojanHorse<'_>, declaration: &Declaration) -> bool {
-    let name: &Option<String> = declaration.site_name();
-    horse.module == declaration.module().as_text()
-        && horse.name == Option::as_deref(name)
-        && declaration
-            .line()
-            .is_none_or(|line| u64::from(horse.line) == line)
-        && declaration
-            .scope()
-            .as_deref()
-            .is_none_or(|scope| horse.scope == Some(scope))
 }
 
 /// The applied declaration and its declared imports, or the problem of its reach.

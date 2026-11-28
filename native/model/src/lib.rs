@@ -70,6 +70,7 @@ mod closed_path;
 mod condensation;
 mod coverage;
 mod cycles;
+mod door_match;
 mod door_reach;
 pub use door_reach::{Applied, TrojanHorseProblem, TrojanHorses};
 mod edges;
