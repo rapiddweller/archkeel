@@ -7,6 +7,7 @@
 use crate::model::{ComponentLabel, ItemId, Package, Selector, SourcePath};
 use crate::model_uml::Target;
 use crate::premises::DeclaredPremise;
+use crate::string_import::StringImportSite;
 use crate::trojan_horse_reach::TrojanHorseReach;
 
 record!(
@@ -208,6 +209,9 @@ record!(
         /// The premises that the contract declares (AD-764); an empty list is not written.
         #[serde(skip_serializing_if = "Vec::is_empty")]
         premises: Vec<DeclaredPremise>,
+        /// The string imports that the team checked (AD-1440); an empty list is not written.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        string_imports: Vec<StringImportSite>,
         /// The scopes of the review.
         review_scopes: Vec<ReviewScope>,
         /// The names of the public API.

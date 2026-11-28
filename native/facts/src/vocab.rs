@@ -152,6 +152,8 @@ closed! {
         TypeIgnore = "type_ignore",
         /// A position that crosses a package with no annotation.
         MissingCrossPackageAnnotation = "missing_cross_package_annotation",
+        /// An import call that names its module by a literal string (AD-1440).
+        StringImport = "string_import",
         /// A gap of the collection.
         CollectionGap = "collection_gap",
         /// A gap of the resolution of a source name.
@@ -445,6 +447,7 @@ impl Kind {
             Self::EvalCall => Some("eval"),
             Self::ExecCall => Some("exec"),
             Self::DynamicImport => Some("dynamic_import"),
+            Self::StringImport => Some("string_import"),
             Self::TypeIgnore => Some("type_ignore"),
             _ => None,
         }

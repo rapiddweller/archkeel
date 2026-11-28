@@ -188,6 +188,7 @@ pub(crate) fn check(
         }
         if place != path {
             inside_trojan_horses(&mut found, place, contract);
+            inside_string_imports(&mut found, place, contract);
         }
     }
     root(
@@ -255,6 +256,23 @@ fn inside_trojan_horses(found: &mut Found, place: &str, contract: &Contract) {
     }
 }
 
+/// AD-1440: only the root contract declares a checked string import; a declaration of an inside
+/// contract is a defect and never applies.
+fn inside_string_imports(found: &mut Found, place: &str, contract: &Contract) {
+    let declared = contract
+        .declarations()
+        .iter()
+        .flat_map(|d| d.string_imports());
+    for (index, record) in declared.enumerate() {
+        let pointer = format!("/declarations/string_imports/{index}");
+        let claim = "an inside contract cannot declare a checked string import; declare it in the \
+                     root contract; the declaration is not applied"
+            .to_owned();
+        let subject = record.id().as_text().to_owned();
+        found.defect(place, ("string_imports.inside", pointer, subject, claim));
+    }
+}
+
 /// The interface lifecycle rows of one contract: from the models when there are some (AD-514), else
 /// the named gap of the family.
 fn interface(
@@ -284,6 +302,22 @@ fn root(
     for finding in hygiene_refs::rationale(contract) {
         found.defect(path, finding);
     }
+    // AD-1440: the id of the built-in rule is reserved. A second rule of that id would hide it.
+    for (index, rule) in contract.rules().iter().enumerate() {
+        let id = archkeel_contract::head_of(rule).id().as_text();
+        if id == archkeel_contract::STRING_IMPORT_RULE {
+            let claim = "this id belongs to the built-in rule that forbids a fixed string import; \
+                         rename the rule"
+                .to_owned();
+            let finding = (
+                "rule.reserved_id",
+                format!("/rules/{index}"),
+                id.to_owned(),
+                claim,
+            );
+            found.defect(path, finding);
+        }
+    }
     if let Some(declarations) = contract.declarations() {
         if !declarations.compat().is_empty() {
             found.gap(path, "compatibility", COMPATIBILITY);
@@ -311,6 +345,10 @@ fn root(
     };
     let graph = models.root().graph();
     trojan_horse_defects(found, path, graph.trojan_horses());
+    for (index, id, claim) in archkeel_model::string_import_problems(models.root()) {
+        let pointer = format!("/declarations/string_imports/{index}");
+        found.defect(path, ("string_imports.unmatched", pointer, id, claim));
+    }
     for finding in unscanned(contract, graph)
         .into_iter()
         .chain(api_surface(contract, graph))

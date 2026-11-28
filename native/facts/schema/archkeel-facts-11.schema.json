@@ -5227,6 +5227,20 @@
             "kind",
             "data"
           ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "string_import"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
         }
       ]
     },
@@ -5363,6 +5377,11 @@
           "type": "string",
           "const": "missing_cross_package_annotation",
           "description": "A position that crosses a package with no annotation."
+        },
+        {
+          "type": "string",
+          "const": "string_import",
+          "description": "An import call that names its module by a literal string (AD-1440)."
         }
       ],
       "description": "The typing signal of a record of `typing_signals`; the text equals the kind of the record."
@@ -6162,6 +6181,11 @@
           "type": "string",
           "const": "missing_cross_package_annotation",
           "description": "A position that crosses a package with no annotation."
+        },
+        {
+          "type": "string",
+          "const": "string_import",
+          "description": "An import call that names its module by a literal string (AD-1440)."
         },
         {
           "type": "string",

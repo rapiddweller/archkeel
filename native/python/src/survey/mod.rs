@@ -198,7 +198,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         (modules, &binders, &imports),
         (&sole_binders, &ambiguous),
         (&writes, hazards.is_empty(), read),
-        &stdlib,
+        (&stdlib, &lazy::fixed(&literals, &lazy, modules.len())),
         &mut evidence,
     );
     let unread_all = binders::unread_all(modules, &binders);

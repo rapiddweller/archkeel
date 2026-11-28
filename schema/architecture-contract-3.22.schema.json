@@ -1023,7 +1023,8 @@
               "delattr",
               "vars",
               "dunder_dict",
-              "string_literal_compare"
+              "string_literal_compare",
+              "string_import"
             ]
           }
         },
@@ -1857,6 +1858,14 @@
             "$ref": "#/$defs/premise"
           },
           "description": "The premises that the contract states by name (AD-764). A PASS that rests on one reads PASS assuming the premise."
+        },
+        "string_imports": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stringImport"
+          },
+          "description": "The string imports that the team checked (AD-1420). Each names one call by module, line and target."
         }
       },
       "not": {
@@ -2870,6 +2879,45 @@
             "standard_library_unchanged",
             "rust_type_reach"
           ]
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "stringImport": {
+      "type": "object",
+      "description": "One call that imports a module by a fixed string and that the team checked (AD-1420). The built-in rule STRING-IMPORT then reads PASS under this premise. A record with another module, line, target or count applies to nothing and is reported.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "module",
+        "line",
+        "target",
+        "rationale",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "module": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many calls the module has on this line."
         },
         "rationale": {
           "$ref": "#/$defs/nonEmpty"

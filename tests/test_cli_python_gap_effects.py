@@ -176,7 +176,8 @@ def test_a_gap_holds_the_rules_that_read_its_effect_and_no_other_rule(
     result = scanned(release_core, tmp_path, plant)
     expected = {rule["id"]: plant.decided.get(rule["id"], "UNKNOWN") for rule in RULES}
     assert rows(result) == expected, result
-    statuses = set(expected.values())
+    # AD-1440: `test_cli_string_import.py` decides the built-in rule; its row joins it.
+    statuses = {*expected.values(), result["frame"]["rules"]["STRING-IMPORT"][1]}
     status = "FAIL" if "FAIL" in statuses else "UNKNOWN" if "UNKNOWN" in statuses else "PASS"
     assert result["status"] == status, result
     if plant.truth:
@@ -198,7 +199,7 @@ def test_the_report_names_for_each_held_rule_the_gaps_that_hold_it(
 ) -> None:
     frame = scanned(release_core, tmp_path, PLANTS["star"])["frame"]
     holds = frame["explain"]["holds"]
-    held = {"CLIENT-NO-SECRET", "CYCLES", "EXTERNAL", "REQUIRES"}
+    held = {"CLIENT-NO-SECRET", "CYCLES", "EXTERNAL", "REQUIRES", "STRING-IMPORT"}
     assert set(holds["rules"]) == held
     for rule in sorted(held):
         entry = holds["rules"][rule]

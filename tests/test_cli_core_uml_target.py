@@ -51,7 +51,8 @@ def _copy(tmp_path: Path, name: str, plant: Plant | None = None) -> Path:
 
 
 def _rows(envelope: dict[str, Any]) -> dict[str, list[str]]:
-    return envelope["frame"].get("rules", {})
+    rules = envelope["frame"].get("rules", {})
+    return {rule: row for rule, row in rules.items() if rule != "STRING-IMPORT"}
 
 
 def _uml(contract: dict[str, Any]) -> dict[str, Any]:

@@ -19,6 +19,7 @@
 mod macros;
 mod boundary;
 mod budgets;
+mod builtin_rule;
 mod canonical;
 mod component;
 mod construct;
@@ -44,6 +45,7 @@ mod python_rules;
 mod read;
 mod rule;
 mod rules;
+mod string_import;
 mod structure;
 mod trojan_horse_reach;
 mod uml;
@@ -52,6 +54,7 @@ mod unused_public;
 mod version;
 mod words;
 
+pub use builtin_rule::STRING_IMPORT_RULE;
 pub use canonical::canonical_bytes;
 #[cfg(test)]
 pub(crate) use canonical::canonical_digest;
@@ -78,6 +81,7 @@ pub use model_uml::{
 };
 pub use premises::{assumption_words, premise_word, PremiseName, PREMISE_NAMES};
 pub use rule::{head_of, kind_of, Rule};
+pub use string_import::StringImportSite;
 pub use trojan_horse_reach::TrojanHorseReach;
 pub use uml_merge::merge_targets;
 pub use unused_public::{PublicItemKind, UnusedPublic};

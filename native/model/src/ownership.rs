@@ -20,8 +20,11 @@ use crate::modules::Module;
 
 /// True when `name` is `scope` or a dotted descendant of it (no partial segment).
 pub fn in_scope(name: &str, scope: &str) -> bool {
-    name.strip_prefix(scope)
-        .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
+    // An empty scope is the namespace of an import-root layout (AD-1440): it covers every module.
+    scope.is_empty()
+        || name
+            .strip_prefix(scope)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
 }
 
 /// True when a component claims a module: one of its exact modules, or below one of its packages.

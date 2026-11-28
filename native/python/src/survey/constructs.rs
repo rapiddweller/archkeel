@@ -12,25 +12,28 @@ use archkeel_facts::vocab::{Area, ConstructForm, EvidenceClass, Signal};
 use archkeel_facts::{ConstructFact, ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Parameter, Stmt};
-use ruff_text_size::Ranged;
-use std::collections::HashSet;
+use ruff_text_size::{Ranged, TextRange};
+use std::collections::{HashMap, HashSet};
 
 use super::binders::{named_call, Binders};
 use super::class_writes::ClassWrites;
 use super::declared::placeholder as declarations;
 use super::support::{Construct, Support};
 use crate::module::{EvidenceMap, Location, Module};
+use findings::Findings;
 
+mod findings;
 #[path = "constructs_ignores.rs"]
 mod ignores;
 #[path = "constructs_placeholder.rs"]
 mod placeholder;
+mod string_import;
 
 pub(super) fn collect(
     (modules, binders, imports): (&[Module], &[Binders], &[Record<ImportFact>]),
     sets: (&HashSet<String>, &HashSet<String>),
     (writes, hazard_free, all_inputs_read): (&ClassWrites, bool, bool),
-    stdlib: &HashSet<&str>,
+    (stdlib, fixed): (&HashSet<&str>, &[HashMap<TextRange, String>]),
     evidence: &mut EvidenceMap,
 ) -> Findings {
     // AD-880: no site of the scan changes the import system or runs a trojan horse, and no write replaces `typing`.
@@ -42,13 +45,16 @@ pub(super) fn collect(
     let mut signals = Vec::new();
     let mut support = Support::start();
     let by_module = declarations::by_module(imports);
-    for (module, binders) in modules.iter().zip(binders) {
+    for ((module, binders), fixed) in modules.iter().zip(binders).zip(fixed) {
         let source_imports = by_module
             .get(module.name.as_str())
             .map_or(&[][..], Vec::as_slice);
         let decisions =
             declarations::decisions(module, binders, source_imports, sets, protocol_unchanged);
         let mut found = one(module, binders, typing_unchanged, evidence);
+        found
+            .signals
+            .extend(string_import::signals(module, fixed, evidence));
         let (placeholders, coverage) = placeholder::collect(module, evidence, &decisions);
         found.records.extend(placeholders);
         found.support.observe_placeholder(coverage);
@@ -65,13 +71,6 @@ pub(super) fn collect(
         support,
         protocol_unchanged,
     }
-}
-
-pub(super) struct Findings {
-    pub records: Vec<Record<ConstructFact>>,
-    pub signals: Vec<Record<SignalFact>>,
-    pub support: Support,
-    pub protocol_unchanged: bool,
 }
 
 fn one(

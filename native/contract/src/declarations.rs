@@ -22,12 +22,13 @@ use crate::read::{
     count, fields, listed_strings, nonempty_field, positive, present, record, repeats,
     strings_field, text,
 };
+use crate::string_import::StringImportSite;
 use crate::trojan_horse_reach::TrojanHorseReach;
 use crate::uml::target;
 use crate::version::{ContractVersion, Feature};
 use crate::words::value_of;
 
-const KEYS: [&str; 18] = [
+const KEYS: [&str; 19] = [
     "capabilities",
     "review_scopes",
     "public_api",
@@ -46,6 +47,7 @@ const KEYS: [&str; 18] = [
     "trojan_horse_reach",
     "door_reach",
     "premises",
+    "string_imports",
 ];
 
 /// The declarations object with only its known keys.
@@ -104,6 +106,7 @@ pub(crate) struct Records {
     trojan_horse_reach: Vec<TrojanHorseReach>,
     deprecated: bool,
     premises: Vec<DeclaredPremise>,
+    string_imports: Vec<StringImportSite>,
 }
 
 /// The ids of step 2 that the contract ID check counts.
@@ -114,8 +117,12 @@ pub(crate) fn record_ids(records: &Records) -> Vec<&ItemId> {
     let owners = records.spot_owners.iter().map(|item| &item.id);
     let trojan_horses = records.trojan_horse_reach.iter().map(|item| &item.id);
     let premises = records.premises.iter().map(|item| &item.id);
+    let strings = records.string_imports.iter().map(|item| &item.id);
     let all = scopes.chain(commands).chain(paths).chain(owners);
-    all.chain(trojan_horses).chain(premises).collect()
+    all.chain(trojan_horses)
+        .chain(premises)
+        .chain(strings)
+        .collect()
 }
 
 /// The budgets of step 2, for the interface budget check.
@@ -170,6 +177,7 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
     let (trojan_horse_reach, deprecated) =
         crate::trojan_horse_reach::trojan_horse_reach(object, version)?;
     let premises = crate::premises::premises(object, version)?;
+    let string_imports = crate::string_import::string_imports(object, version)?;
     Ok(Records {
         review_scopes,
         public_commands,
@@ -184,6 +192,7 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
         trojan_horse_reach,
         deprecated,
         premises,
+        string_imports,
     })
 }
 
@@ -232,6 +241,7 @@ pub(crate) fn finish(
         trojan_horse_reach: records.trojan_horse_reach,
         deprecated_spelling: records.deprecated,
         premises: records.premises,
+        string_imports: records.string_imports,
     })
 }
 

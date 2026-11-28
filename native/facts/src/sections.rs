@@ -247,6 +247,8 @@ section_facts! {
         TypeIgnore,
         /// A position that crosses a package with no annotation.
         MissingCrossPackageAnnotation,
+        /// An import call that names its module by a literal string (AD-1440).
+        StringImport,
     }
 }
 

@@ -39,6 +39,26 @@ use crate::module::Module;
 mod tests;
 
 /// The proof of each module, in the order of `modules`.
+/// The fixed literal calls of each module: a lazy-table load computes its name, so it is no string import.
+pub(super) fn fixed(
+    literals: &[(usize, TextRange, String)],
+    lazy: &[Lazy],
+    modules: usize,
+) -> Vec<HashMap<TextRange, String>> {
+    let table: HashSet<(usize, TextRange)> = lazy
+        .iter()
+        .enumerate()
+        .flat_map(|(index, item)| item.targets.iter().map(move |(range, _)| (index, *range)))
+        .collect();
+    let mut found = vec![HashMap::new(); modules];
+    for (index, range, target) in literals {
+        if !table.contains(&(*index, *range)) {
+            found[*index].insert(*range, target.clone());
+        }
+    }
+    found
+}
+
 pub(super) fn find(modules: &[Module], binders: &[Binders], namespace: &str) -> Vec<Lazy> {
     let known: HashMap<&str, usize> = modules
         .iter()

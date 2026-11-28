@@ -41,6 +41,8 @@ closed_enum!(
         DunderDict,
         /// A comparison with a string literal.
         StringLiteralCompare,
+        /// An import call that names its module by a literal string (AD-1440).
+        StringImport,
     }
 );
 

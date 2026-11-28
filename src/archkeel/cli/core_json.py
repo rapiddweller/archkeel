@@ -77,6 +77,10 @@ class GapKind(StrEnum):
     TROJAN_HORSE_REACH_REPEATED = "trojan_horse_reach.repeated"
     TROJAN_HORSE_REACH_INVALID = "trojan_horse_reach.invalid"
     TROJAN_HORSE_REACH_INSIDE = "trojan_horse_reach.inside"
+    # AD-1440: a declared string import that the core does not apply, and the reserved rule id.
+    STRING_IMPORTS_UNMATCHED = "string_imports.unmatched"
+    STRING_IMPORTS_INSIDE = "string_imports.inside"
+    RULE_RESERVED_ID = "rule.reserved_id"
     # AD-1090: a declared measurement budget that the run does not compare with a baseline file.
     BUDGET_UNKNOWN = "budget.unknown"
     HYGIENE_NOT_PORTED = "contract_hygiene_not_ported"
