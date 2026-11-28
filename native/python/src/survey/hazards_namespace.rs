@@ -16,68 +16,73 @@ use ruff_text_size::Ranged;
 use super::trojan_horse::Site;
 
 /// Set the class of the names on each `eval` and `exec` site that is the callee of `call`.
-/// `builtin_dict` is true when the name `dict` is the builtin: no import, parameter or local binds it.
-pub(super) fn attach(sites: &mut [Site], call: &ExprCall, builtin_dict: bool) {
+pub(super) fn attach(sites: &mut [Site], call: &ExprCall, class: SiteNamespace) {
     let callee = call.func.range();
     for site in sites.iter_mut().filter(|site| site.range == callee) {
         if matches!(
             site.trojan_horse,
             Some(TrojanHorseForm::Eval | TrojanHorseForm::Exec)
         ) {
-            site.namespace = Some(of(call, builtin_dict));
+            site.namespace = Some(class);
         }
     }
 }
 
-/// The class of the mapping that the call gives the code: its second positional argument or its
-/// `globals` keyword. A spread hides the position of every argument: unknown.
-fn of(call: &ExprCall, builtin_dict: bool) -> SiteNamespace {
+/// The class of the names that the call gives the code (`builtin` tells whether a name is the
+/// builtin: no import, parameter or local binds it): its globals (second positional argument
+/// or `globals=`) and its locals (third or `locals=`). A spread hides the position of every
+/// argument: unknown.
+pub(super) fn of(call: &ExprCall, builtin: &dyn Fn(&str) -> bool) -> SiteNamespace {
     let keywords = &call.arguments.keywords;
     if keywords.iter().any(|keyword| keyword.arg.is_none())
         || call.arguments.args.iter().any(Expr::is_starred_expr)
     {
         return SiteNamespace::Unknown;
     }
-    let named = keywords.iter().find(|keyword| {
-        keyword
-            .arg
-            .as_ref()
-            .is_some_and(|name| name.as_str() == "globals")
-    });
-    match call
-        .arguments
-        .args
-        .get(1)
-        .or(named.map(|keyword| &keyword.value))
-    {
+    let given = |position: usize, name: &str| {
+        let keyword = keywords
+            .iter()
+            .find(|keyword| keyword.arg.as_ref().is_some_and(|arg| arg.as_str() == name));
+        call.arguments
+            .args
+            .get(position)
+            .or(keyword.map(|keyword| &keyword.value))
+    };
+    let globals = match given(1, "globals") {
         None | Some(Expr::NoneLiteral(_)) => SiteNamespace::Default,
-        Some(expression) => class(expression, builtin_dict),
-    }
+        Some(expression) => class(expression, builtin),
+    };
+    let locals = given(2, "locals")
+        .filter(|expression| !matches!(expression, Expr::NoneLiteral(_)))
+        .map(|expression| class(expression, builtin));
+    // The code writes the mapping that is shared or unproved, whichever argument holds it.
+    let mappings = [Some(globals), locals];
+    let mut seen = mappings.into_iter().flatten();
+    let worst = |a: SiteNamespace, b: SiteNamespace| match (a, b) {
+        (SiteNamespace::Shared, _) | (_, SiteNamespace::Shared) => SiteNamespace::Shared,
+        (SiteNamespace::Default, _) | (_, SiteNamespace::Default) => SiteNamespace::Default,
+        (SiteNamespace::Unknown, _) | (_, SiteNamespace::Unknown) => SiteNamespace::Unknown,
+        _ => SiteNamespace::Fresh,
+    };
+    seen.next().map_or(globals, |first| seen.fold(first, worst))
 }
 
-fn class(expression: &Expr, builtin_dict: bool) -> SiteNamespace {
+fn class(expression: &Expr, builtin: &dyn Fn(&str) -> bool) -> SiteNamespace {
     match expression {
         Expr::Dict(_) => SiteNamespace::Fresh,
-        // `dict(...)` builds a new mapping only when `dict` is the builtin.
+        // A helper counts only as the builtin: an import, a parameter or a method of the name is
+        // not proved to build, or to return, what the builtin does.
         Expr::Call(call) => match &*call.func {
-            Expr::Name(name) if name.id.as_str() == "dict" && builtin_dict => SiteNamespace::Fresh,
-            func => match called(func) {
-                Some("globals" | "locals" | "vars") => SiteNamespace::Shared,
+            Expr::Name(name) if builtin(name.id.as_str()) => match name.id.as_str() {
+                "dict" => SiteNamespace::Fresh,
+                "globals" | "locals" | "vars" => SiteNamespace::Shared,
                 _ => SiteNamespace::Unknown,
             },
+            _ => SiteNamespace::Unknown,
         },
         Expr::Attribute(node) if node.attr.as_str() == "__dict__" => SiteNamespace::Shared,
         Expr::Subscript(node) if is_modules(&node.value) => SiteNamespace::Shared,
         _ => SiteNamespace::Unknown,
-    }
-}
-
-/// The last name of a callee: `globals`, `builtins.globals`.
-fn called(func: &Expr) -> Option<&str> {
-    match func {
-        Expr::Name(node) => Some(node.id.as_str()),
-        Expr::Attribute(node) => Some(node.attr.as_str()),
-        _ => None,
     }
 }
 

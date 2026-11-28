@@ -268,8 +268,10 @@ impl Walk<'_> {
                 }
                 let first = self.found.len();
                 visitor::walk_expr(self, expr);
-                let builtin = !self.local("dict") && !self.bound.contains_key("dict");
-                namespace::attach(&mut self.found[first..], call, builtin);
+                let class = namespace::of(call, &|name| {
+                    !self.local(name) && !self.bound.contains_key(name)
+                });
+                namespace::attach(&mut self.found[first..], call, class);
             }
         }
     }

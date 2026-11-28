@@ -55,6 +55,9 @@ fn the_names_of_the_product_are_shared() {
     for source in [
         "def f(text):\n    return eval(text, globals())\n",
         "def f(text):\n    exec(text, vars())\n",
+        // The locals mapping counts too: the code writes it.
+        "def f(text):\n    exec(text, {}, globals())\n",
+        "def f(text):\n    exec(text, {}, locals=vars())\n",
         "def f(text):\n    exec(text, locals())\n",
         "def f(text):\n    return eval(text, __import__('app').__dict__)\n",
         "import sys\n\ndef f(text):\n    exec(text, sys.modules['app.calc'].__dict__)\n",
@@ -87,6 +90,11 @@ fn a_mapping_of_unknown_origin_is_unknown_and_a_spread_hides_the_arguments() {
         "def f(text, dict):\n    exec(text, dict())\n",
         "def f(text, box):\n    exec(text, box.dict())\n",
         "from app.other import dict\n\ndef f(text):\n    exec(text, dict())\n",
+        // A method or a parameter named `globals` is not the builtin.
+        "def f(text, box):\n    exec(text, box.globals())\n",
+        "def f(text, globals):\n    exec(text, globals())\n",
+        // A fresh globals with a locals that is not proved.
+        "def f(text, ns):\n    exec(text, {}, ns)\n",
     ] {
         assert_eq!(one(source), Some(SiteNamespace::Unknown), "{source}");
     }
