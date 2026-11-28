@@ -48,6 +48,8 @@ pub(super) fn named(
             found: HashSet::new(),
             word: Vec::new(),
             joining: None,
+            // A word in a comment of a Rust file names nothing; the other languages keep them.
+            rust: rel.ends_with(".rs").then(RustLexer::default),
         };
         let mut api = !rel.ends_with(".rs");
         let mut tail: Vec<u8> = Vec::new();
@@ -104,6 +106,8 @@ struct Words<'t> {
     word: Vec<u8>,
     /// After a `"` that ends a word: the blanks seen since, until the next `"` joins two literals.
     joining: Option<usize>,
+    /// The comment state of a Rust file.
+    rust: Option<RustLexer>,
 }
 
 impl Words<'_> {
@@ -117,6 +121,10 @@ impl Words<'_> {
     }
 
     fn byte(&mut self, byte: u8) {
+        if self.rust.as_mut().is_some_and(|lexer| lexer.comment(byte)) {
+            self.flush();
+            return;
+        }
         if let Some(blanks) = self.joining {
             match byte {
                 b'"' => {
@@ -153,6 +161,157 @@ impl Words<'_> {
             self.found.insert(text.to_owned());
         }
         self.word.clear();
+    }
+}
+
+/// Where the bytes of a Rust file are: in code, a comment, a string or a character. Only a byte in
+/// a comment is skipped. A doubt keeps the byte as code, so a name is never hidden by a wrong guess:
+/// a string that is mistaken for code can only show more words, never fewer.
+#[derive(Default)]
+struct RustLexer {
+    state: Lex,
+    before: [u8; 2],
+}
+
+#[derive(Clone, Copy, Default)]
+enum Lex {
+    #[default]
+    Code,
+    Slash,
+    Line,
+    Block(u32),
+    BlockStar(u32),
+    BlockSlash(u32),
+    Str,
+    StrEscape,
+    RawHash(usize),
+    Raw {
+        hashes: usize,
+        closing: Option<usize>,
+    },
+    Quote,
+    CharOne,
+    CharEscape,
+    CharEnd,
+}
+
+fn ident(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
+}
+
+impl RustLexer {
+    /// True when `byte` is part of a comment.
+    fn comment(&mut self, byte: u8) -> bool {
+        let comment = self.step(byte);
+        self.before = [self.before[1], byte];
+        comment
+    }
+
+    fn step(&mut self, byte: u8) -> bool {
+        loop {
+            let [older, last] = self.before;
+            let (next, comment) = match (self.state, byte) {
+                (Lex::Code, b'/') => (Lex::Slash, false),
+                (Lex::Code, b'"') => (Lex::Str, false),
+                (Lex::Code, b'\'') => (Lex::Quote, false),
+                (Lex::Code, b'r')
+                    if !ident(last) || (matches!(last, b'b' | b'c') && !ident(older)) =>
+                {
+                    (Lex::RawHash(0), false)
+                }
+                (Lex::Code, _) => (Lex::Code, false),
+                (Lex::Slash, b'/') => (Lex::Line, true),
+                (Lex::Slash, b'*') => (Lex::Block(1), true),
+                (Lex::Slash, _) => {
+                    self.state = Lex::Code;
+                    continue;
+                }
+                (Lex::Line, b'\n') => (Lex::Code, false),
+                (Lex::Line, _) => (Lex::Line, true),
+                (Lex::Block(depth), b'*') => (Lex::BlockStar(depth), true),
+                (Lex::Block(depth), b'/') => (Lex::BlockSlash(depth), true),
+                (Lex::Block(depth), _) => (Lex::Block(depth), true),
+                (Lex::BlockStar(1), b'/') => (Lex::Code, true),
+                (Lex::BlockStar(depth), b'/') => (Lex::Block(depth - 1), true),
+                (Lex::BlockStar(depth), b'*') => (Lex::BlockStar(depth), true),
+                (Lex::BlockStar(depth), _) => (Lex::Block(depth), true),
+                (Lex::BlockSlash(depth), b'*') => (Lex::Block(depth + 1), true),
+                (Lex::BlockSlash(depth), b'/') => (Lex::BlockSlash(depth), true),
+                (Lex::BlockSlash(depth), _) => (Lex::Block(depth), true),
+                (Lex::Str, b'\\') => (Lex::StrEscape, false),
+                (Lex::Str, b'"') => (Lex::Code, false),
+                (Lex::Str, _) => (Lex::Str, false),
+                (Lex::StrEscape, _) => (Lex::Str, false),
+                (Lex::RawHash(hashes), b'#') => (Lex::RawHash(hashes + 1), false),
+                (Lex::RawHash(0), b'"') => (
+                    Lex::Raw {
+                        hashes: 0,
+                        closing: None,
+                    },
+                    false,
+                ),
+                (Lex::RawHash(hashes), b'"') => (
+                    Lex::Raw {
+                        hashes,
+                        closing: None,
+                    },
+                    false,
+                ),
+                (Lex::RawHash(_), _) => {
+                    self.state = Lex::Code;
+                    continue;
+                }
+                (Lex::Raw { hashes: 0, .. }, b'"') => (Lex::Code, false),
+                (Lex::Raw { hashes, .. }, b'"') => (
+                    Lex::Raw {
+                        hashes,
+                        closing: Some(0),
+                    },
+                    false,
+                ),
+                (
+                    Lex::Raw {
+                        hashes,
+                        closing: Some(seen),
+                    },
+                    b'#',
+                ) if seen + 1 == hashes => (Lex::Code, false),
+                (
+                    Lex::Raw {
+                        hashes,
+                        closing: Some(seen),
+                    },
+                    b'#',
+                ) => (
+                    Lex::Raw {
+                        hashes,
+                        closing: Some(seen + 1),
+                    },
+                    false,
+                ),
+                (Lex::Raw { hashes, .. }, _) => (
+                    Lex::Raw {
+                        hashes,
+                        closing: None,
+                    },
+                    false,
+                ),
+                (Lex::Quote, b'\\') => (Lex::CharEscape, false),
+                (Lex::Quote, b'\'') => (Lex::Code, false),
+                (Lex::Quote, _) => (Lex::CharOne, false),
+                (Lex::CharOne, b'\'') => (Lex::Code, false),
+                (Lex::CharOne, _) => {
+                    // A lifetime, not a character: the byte is code.
+                    self.state = Lex::Code;
+                    continue;
+                }
+                (Lex::CharEscape, _) => (Lex::CharEnd, false),
+                (Lex::CharEnd, b'\'') => (Lex::Code, false),
+                (Lex::CharEnd, _) => (Lex::CharEnd, false),
+            };
+            self.state = next;
+            return comment;
+        }
     }
 }
 
