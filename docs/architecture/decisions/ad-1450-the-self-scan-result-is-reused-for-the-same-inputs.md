@@ -12,7 +12,7 @@ workflows gives the scan the same inputs as main, so it gives the same result.
 1. `tools/self_scan_cache.py` keys a saved result of the system scan by a hash of its inputs. It is a
    result cache. It is not a comparison and it is not a gate.
 2. Every file of the repository counts, by content, except the formats of `NEUTRAL_SUFFIXES` (`.md` and
-   images). A name that the TypeScript collector reads as a preload configuration counts whatever its
+   images) below `docs/`. A name that the TypeScript collector reads as a preload configuration counts whatever its
    suffix. This includes a file not yet added to git and a link with the content of its target. A list of
    what the collectors read failed in review again and again, so the rule is the opposite. The entry also
    holds the neutral documents that the scan read: the files that the core bound (`contract_files`) and
@@ -34,6 +34,6 @@ reused result keeps the `git_head` of main.
 
 ## Not done yet
 
-- A pull request that changes a `.md` or an image file that a collector reads without a contract citing
-  it would give a stale result. No collector reads such a file as a source today.
+- A document below `docs/` that a collector reads without a contract citing it, for example a path that a
+  tracked `package.json` script names as an env file, would give a stale result. No such path exists today.
 - A change of a test or a workflow file misses and scans: the hit rate is highest for docs-only changes.

@@ -99,7 +99,7 @@ def test_the_same_inputs_reuse_the_saved_result_byte_for_byte(repo: Path) -> Non
     assert (repo.parent / "out.json").read_text() == json.dumps(RESULT)
 
 
-@pytest.mark.parametrize("name", ["docs/other.md", "README.md", "docs/img.png"])
+@pytest.mark.parametrize("name", ["docs/other.md", "docs/img.png"])
 def test_a_file_that_the_scan_does_not_read_keeps_the_key(repo: Path, name: str) -> None:
     directory = saved(repo)
     (repo / name).parent.mkdir(parents=True, exist_ok=True)
@@ -145,6 +145,8 @@ def test_a_changed_static_input_is_a_miss(repo: Path, name: str) -> None:
         "docs/architecture/inner/architecture-contract.json",
         "tools/probe.py",
         "package.json",
+        "README.md",
+        "runtime.md",
         ".env.local.md",
         "docs/.env.png",
         ".npmrc",

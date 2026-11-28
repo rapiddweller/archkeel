@@ -13,8 +13,8 @@ Run: `python tools/self_scan_cache.py key|save|hit ...`.
 
 - `key`: print the prefix of the cache key, `selfscan-v1-<static hash>-`. Every file of the
   repository counts with its content (also a file not yet added to git), except the formats in
-  `NEUTRAL_SUFFIXES` (`.md` and images) and the names that the TypeScript collector reads as a
-  preload configuration. A list of what the collectors read would miss a kind of file, so the
+  `NEUTRAL_SUFFIXES` below `docs/` (`.md` and images) and the names that the TypeScript collector
+  reads as a preload configuration. A list of what the collectors read would miss a kind of file, so the
   rule is the opposite: a changed, new or deleted byte of any other file changes the key. A pull
   request changes tracked files only, so an ignored file is no input of it: the key refuses (the
   caller scans) when an ignored path is not build output.
@@ -117,9 +117,8 @@ def tracked(root: Path) -> list[tuple[str, str]]:
 
 def is_static(path: str, mode: str) -> bool:
     name = path.rsplit("/", 1)[-1]
-    return (
-        mode == "120000" or name.startswith(PRELOAD_PREFIXES) or not name.endswith(NEUTRAL_SUFFIXES)
-    )
+    neutral = path.startswith("docs/") and name.endswith(NEUTRAL_SUFFIXES)
+    return mode == "120000" or name.startswith(PRELOAD_PREFIXES) or not neutral
 
 
 def content(root: Path, path: str, mode: str) -> str:
