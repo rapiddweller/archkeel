@@ -76,29 +76,25 @@ impl<'f> Filter<'f> {
         kept.filter(|s| seen.insert(key(s))).collect()
     }
 
-    /// True when the compiler resolved the method call at `(file, line, column)` to a function that another file than
-    /// `target` holds, and no type argument of the call can run code of `target`: the call cannot reach a method in
-    /// the file of the target (AD-1185). Every configuration must hold the place in a library unit with the same
-    /// callee, and no argument may be open, or defined in `target`, or carry an impl from it.
+    /// The compiler resolved the method call at `(file, line, column)` to a function that another file than
+    /// `target` holds, in a library unit of every configuration with the same callee (AD-1185). The named doubt
+    /// of the call is then settled: `Some(runs)`. `runs` is the execution doubt: a type argument of the call is
+    /// open, is defined in `target`, or carries an impl from it, so code of `target` can still run (AD-1550).
     pub(crate) fn resolved_elsewhere(
         reach: Option<&Filter<'_>>,
         target: &str,
         (file, line, column): (&str, i64, i64),
-    ) -> bool {
-        let Some(this) = reach else {
-            return false;
-        };
+    ) -> Option<bool> {
+        let this = reach?;
         let key = (file.to_owned(), line, column);
         let mut places = this
             .models
             .iter()
             .map(|m| m.callees.get(&key).filter(|p| p.library));
-        let Some(Some(first)) = places.next() else {
-            return false;
-        };
+        let first = places.next()??;
         let mut one = first.callees.iter();
         let (Some(callee), None) = (one.next(), one.next()) else {
-            return false;
+            return None;
         };
         let same = |p: Option<&Place>| {
             p.is_some_and(|p| p.callees.len() == 1 && p.callees.contains(callee))
@@ -106,7 +102,7 @@ impl<'f> Filter<'f> {
         let all: Vec<Option<&Place>> = std::iter::once(Some(first)).chain(places).collect();
         let held = all.iter().copied().all(same);
         let runs = |p: &Place| p.open || p.touch.contains(target);
-        held && callee.as_deref() != Some(target) && !all.iter().flatten().any(|p| runs(p))
+        (held && callee.as_deref() != Some(target)).then(|| all.iter().flatten().any(|p| runs(p)))
     }
 
     /// True when no body of `a` can hold the self type of an impl of `b` that runs code.
@@ -125,3 +121,7 @@ impl<'f> Filter<'f> {
         excluded
     }
 }
+
+#[cfg(test)]
+#[path = "type_reach_filter_tests.rs"]
+mod tests;

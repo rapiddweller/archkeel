@@ -88,6 +88,7 @@ impl<'a> Members<'a> {
                 lexical: frame.lexical_at(&block.scope),
                 ty: ty.clone(),
                 member,
+                site: &block.site,
                 exact: block.exact,
             };
             if let Some((lexical, ty)) = own {

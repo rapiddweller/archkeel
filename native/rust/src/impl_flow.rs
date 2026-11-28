@@ -23,38 +23,26 @@ use crate::site::Site;
 use crate::tree::Module;
 use crate::type_reach_filter::Filter;
 
-/// One trait or `Drop` home settled lazily without `homes x callers` materialization (#1942).
-pub(super) struct LazyHome {
-    pub(super) target: u32,
-    pub(super) crate_index: usize,
-    pub(super) rel: String,
-    pub(super) site: Site,
-    pub(super) reason: String,
-}
-
-/// Precomputed lazy trait/drop homes and crate dependency matrix (#1942).
-pub(super) struct LazyHomes {
-    pub(super) trait_homes: Vec<LazyHome>,
-    pub(super) drop_homes: Vec<LazyHome>,
-    pub(super) crate_deps: Vec<Vec<bool>>,
-}
+pub(super) use super::orphans::{LazyHome, LazyHomes};
 
 /// Compact pending candidate waiting for value-flow settlement (#1942).
 pub(super) struct Pending {
-    source: u32,
-    site: u32,
-    target: u32,
-    reason: u32,
-    erased: bool,
-    execution: bool,
-    no_name_route: bool,
+    pub(super) source: u32,
+    pub(super) site: u32,
+    pub(super) target: u32,
+    pub(super) reason: u32,
+    pub(super) erased: bool,
+    pub(super) execution: bool,
+    pub(super) no_name_route: bool,
+    /// The site of the target that a settled named candidate keeps as its execution doubt (AD-1550).
+    pub(super) home: Option<u32>,
 }
 
 /// Interned candidate pool sharing `Builder`'s string table (#1942).
 pub(super) struct PendingPool {
-    sites: Vec<(u32, Site)>,
+    pub(super) sites: Vec<(u32, Site)>,
     site_index: HashMap<(u32, i64, i64, i64), u32>,
-    items: Vec<Pending>,
+    pub(super) items: Vec<Pending>,
 }
 
 impl PendingPool {
@@ -85,7 +73,9 @@ impl PendingPool {
         (rel, site): (&str, &Site),
         reason: &str,
         (erased, execution, no_name_route): (bool, bool, bool),
+        home: Option<(&str, &Site)>,
     ) {
+        let home = home.map(|(rel, site)| self.intern_site(builder, rel, site));
         let site = self.intern_site(builder, rel, site);
         self.items.push(Pending {
             source: builder.intern_text(source),
@@ -95,26 +85,28 @@ impl PendingPool {
             erased,
             execution,
             no_name_route,
+            home,
         });
     }
 
-    /// A candidate of a written call that the compiler resolved to another module: it never reaches the target.
-    /// It leaves before the named pairs are read, so a pair that only such calls named is not named (AD-1185).
-    fn elsewhere(
+    /// The compiler resolved the written call of a named candidate to another module (AD-1185): the named doubt
+    /// is settled. `Some(runs)` says whether an argument of the call can still run code of the target (AD-1550).
+    pub(super) fn elsewhere(
         &self,
         (builder, index): (&Builder, &Index<'_>),
         reach: Option<&Filter<'_>>,
         pending: &Pending,
-    ) -> bool {
-        let Some((rel, site)) = self.site_of(pending.site) else {
-            return false;
-        };
-        let target = index.rel(builder.interned_text(pending.target));
+    ) -> Option<bool> {
+        if pending.execution {
+            return None;
+        }
+        let (rel, site) = self.site_of(pending.site)?;
+        let target = index.rel(builder.interned_text(pending.target))?;
         let at = (builder.interned_text(rel), site.line, site.column);
-        !pending.execution && target.is_some_and(|file| Filter::resolved_elsewhere(reach, file, at))
+        Filter::resolved_elsewhere(reach, target, at)
     }
 
-    fn site_of(&self, id: u32) -> Option<(u32, &Site)> {
+    pub(super) fn site_of(&self, id: u32) -> Option<(u32, &Site)> {
         let (rel, site) = self.sites.get(usize::try_from(id).ok()?)?;
         Some((*rel, site))
     }
@@ -159,7 +151,20 @@ pub(super) fn settle(
     }
     builder.reach_used = filter.as_ref().is_some_and(|f| f.matched() > 0);
     let mut open = std::mem::take(&mut pool.items);
-    open.retain(|p| !pool.elsewhere((builder, index), filter.as_ref(), p));
+    // A settled named doubt leaves the named pairs. An argument that can run code of the target keeps its
+    // execution doubt as a candidate of its own (AD-1550).
+    open.retain_mut(
+        |p| match pool.elsewhere((builder, index), filter.as_ref(), p) {
+            None => true,
+            Some(false) => false,
+            Some(true) => {
+                if let Some(home) = p.home {
+                    (p.site, p.execution) = (home, true);
+                }
+                true
+            }
+        },
+    );
     let mut ctx = FlowContext {
         edges: import_edges(builder),
         ancestors: build_ancestors(builder),
@@ -372,6 +377,7 @@ pub(super) fn push_own_candidates(
             (&module.rel, &call.site),
             &reason,
             (false, false, no_name_route),
+            Some((&block.module.rel, block.site)),
         );
     }
 }

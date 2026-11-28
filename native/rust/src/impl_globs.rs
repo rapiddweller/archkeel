@@ -9,6 +9,8 @@
 
 use std::collections::{BTreeSet, HashSet};
 
+use crate::site::Site;
+
 use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::ImportFact;
 
@@ -344,6 +346,8 @@ pub(crate) struct Foreign<'a> {
     pub(crate) lexical: String,
     pub(crate) ty: TypeOf,
     pub(crate) member: &'a Member,
+    /// The `impl` keyword of the block (`ImplBlock::site`).
+    pub(crate) site: &'a Site,
     /// The block has only inert attributes and no type parameter (`ImplBlock::exact`).
     pub(crate) exact: bool,
 }

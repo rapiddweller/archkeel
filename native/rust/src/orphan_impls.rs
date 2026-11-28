@@ -33,7 +33,21 @@ use crate::modules::{Index, TypeOf};
 use crate::site::Site;
 use crate::tree::Module;
 
-use super::flow::{LazyHome, LazyHomes};
+/// One trait or `Drop` home settled lazily without `homes x callers` materialization (#1942).
+pub(super) struct LazyHome {
+    pub(super) target: u32,
+    pub(super) crate_index: usize,
+    pub(super) rel: String,
+    pub(super) site: Site,
+    pub(super) reason: String,
+}
+
+/// Precomputed lazy trait/drop homes and crate dependency matrix (#1942).
+pub(super) struct LazyHomes {
+    pub(super) trait_homes: Vec<LazyHome>,
+    pub(super) drop_homes: Vec<LazyHome>,
+    pub(super) crate_deps: Vec<Vec<bool>>,
+}
 
 /// What the blocks around an impl say of its self type: `Some(anchored)` when they decide it,
 /// `None` when no block item or `use` can bind its first name and the module decides.
