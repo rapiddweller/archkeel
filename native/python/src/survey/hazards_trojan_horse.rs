@@ -56,6 +56,20 @@ const UNPICKLE: [&str; 11] = [
     "cloudpickle.loads",
 ];
 
+/// The names that evaluate the string annotations of an object (AD-1176).
+const EVALUATES: [&str; 10] = [
+    "inspect.signature",
+    "typing.ForwardRef._evaluate",
+    "typing.get_type_hints",
+    "typing._eval_type",
+    "typing.evaluate_forward_ref",
+    "typing_extensions.get_type_hints",
+    "typing_extensions.evaluate_forward_ref",
+    "inspect.Signature.from_callable",
+    "inspect.get_annotations",
+    "annotationlib.get_annotations",
+];
+
 /// The form of a site of kind `kind` with the qualified name `detail`, if it is a trojan horse whose
 /// reach a contract can declare. A string literal is never a trojan horse site here: the caller does not
 /// ask for it.
@@ -66,6 +80,8 @@ pub(super) fn form(kind: &str, detail: &str) -> Option<TrojanHorseForm> {
     let form = match detail {
         "eval" | "builtins.eval" => TrojanHorseForm::Eval,
         "exec" | "builtins.exec" => TrojanHorseForm::Exec,
+        // The evaluation of an annotation runs its text as an expression (AD-1176).
+        name if EVALUATES.contains(&name) => TrojanHorseForm::Eval,
         "compile" | "builtins.compile" => TrojanHorseForm::Compile,
         "__import__" | "builtins.__import__" => TrojanHorseForm::DunderImport,
         "import_module" | "importlib.import_module" => TrojanHorseForm::Loader,

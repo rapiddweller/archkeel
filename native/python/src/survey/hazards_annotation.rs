@@ -14,14 +14,46 @@ use ruff_python_ast::{Expr, ExprCall, ExprStringLiteral, Identifier, ModModule, 
 
 use crate::parse::Unread;
 
-#[path = "hazards_annotation_class.rs"]
-pub(in crate::survey::hazards) mod class;
 #[path = "hazards_annotation_forms.rs"]
 mod forms;
-#[path = "hazards_annotation_imports.rs"]
-mod imports;
 
 pub(in crate::survey::hazards) use forms::literal;
+
+/// The qualified name of a call that evaluates string annotations only when asked (AD-1176):
+/// `inspect.signature(f, eval_str=..)` with a keyword `eval_str` that is no literal `False`, or with
+/// a `**` expansion that can hold it, and the private `_evaluate` method of a `ForwardRef`. The
+/// other evaluators are hazard names (`hazards_names.rs`). `origins` are the import bindings of
+/// a plain name.
+pub(super) fn evaluation(call: &ExprCall, origins: &dyn Fn(&str) -> Vec<String>) -> Option<String> {
+    let mut attributes = Vec::new();
+    let mut base = &*call.func;
+    while let Expr::Attribute(node) = base {
+        attributes.push(Identifier::as_str(&node.attr));
+        base = &node.value;
+    }
+    if attributes.first() == Some(&"_evaluate") {
+        return Some("typing.ForwardRef._evaluate".to_owned());
+    }
+    let Expr::Name(root) = base else {
+        return None;
+    };
+    let asked = call.arguments.keywords.iter().any(|k| match &k.arg {
+        Some(arg) => {
+            arg.as_str() == "eval_str" && !matches!(&k.value, Expr::BooleanLiteral(b) if !b.value)
+        }
+        None => true,
+    });
+    attributes.reverse();
+    let qualified = |origin: &String| {
+        let parts = std::iter::once(origin.as_str()).chain(attributes.iter().copied());
+        parts.collect::<Vec<_>>().join(".")
+    };
+    let found = origins(root.id.as_str())
+        .iter()
+        .map(qualified)
+        .find(|n| n == "inspect.signature");
+    found.filter(|_| asked)
+}
 
 /// What `expr` evaluates as code: a string in an annotation, the first argument of `ForwardRef`,
 /// or a name in an annotation that the module assigns a string.

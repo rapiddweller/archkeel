@@ -268,7 +268,7 @@ GLOBALS: dict[str, Plant] = {
         tree(
             "import typing\n"
             "def f(fn):\n    g = getattr(fn, '__globals__', {})\n"
-            "    return typing.get_type_hints(fn, g)\n"
+            "    return typing.cast(dict, g)\n"
         ),
         "PASS",
         "UNKNOWN",

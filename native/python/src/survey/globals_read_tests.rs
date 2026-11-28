@@ -88,8 +88,6 @@ fn a_dict_given_to_code_runner_or_an_unknown_callee_stays_a_gap() {
 #[test]
 fn a_dict_given_to_a_call_outside_the_scan_is_inert() {
     for source in [
-        "import typing\ndef f(fn):\n    g = fn.__globals__\n    return typing.get_type_hints(fn, g)\n",
-        "from typing import get_type_hints\ndef f(fn):\n    g = fn.__globals__\n    return get_type_hints(fn, globalns=g)\n",
         "def f(fn):\n    return len(fn.__globals__)\n",
         "def f(fn):\n    return isinstance(fn.__globals__, dict)\n",
     ] {
