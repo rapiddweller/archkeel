@@ -6,8 +6,8 @@
 The tests copy `src/archkeel` and the shell contract into a Git repository, run the default
 `archkeel validate` with the core of this build, and require a usable result without FAIL or
 violation, as the shell part of `make self-validate` does (AD-1260). No status or gap count is
-pinned. Planted imports show that a rule can fail, and one mounted contract of `native/` shows what a
-mixed tree gives today.
+pinned. Planted imports show that a rule can fail, and one mounted contract of `native/` shows
+what a mixed tree gives today.
 """
 
 from __future__ import annotations
