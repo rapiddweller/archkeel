@@ -18,4 +18,4 @@ A `conftest.py` or a test path **inside a scan root** is not touched: the scan r
 
 **Rejected.** A move of the CE tests to `tests/`: the repository layout is not the tool's to dictate.
 
-**Limit.** A test file that the product loads at run time by a computed name is the stated premise (AD-770). Test source is not read, so a gap that its own code would give is not given.
+**Limit.** The plant `b-outside-roots-conftest` (a `conftest.py` that rebinds a name of the scan) is now a named open false PASS in `tests/python_review_plants.py`, as a write from a file below `tests/` is: pytest runs the write, the product does not. A test file that the product loads at run time by a computed name is the stated premise (AD-770). Test source is not read, so a gap that its own code would give is not given.
