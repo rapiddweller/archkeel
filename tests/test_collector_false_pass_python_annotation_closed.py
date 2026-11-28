@@ -706,6 +706,18 @@ SCOPES = {
             x: s
         """
     ),
+    "receiver shadowed by a lambda parameter": source(
+        """
+        import contextlib
+        import inspect as m
+
+        (lambda m: [None for m.AbstractContextManager in [PAYLOAD]])(contextlib)
+
+
+        class K:
+            x: contextlib.AbstractContextManager
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

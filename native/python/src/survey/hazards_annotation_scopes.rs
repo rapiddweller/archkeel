@@ -405,6 +405,11 @@ impl<'a> Visitor<'a> for Build<'a, '_> {
             }
             Expr::Call(call) => self.call(call, expr),
             Expr::Named(node) => self.target(&node.target, None),
+            // A lambda parameter can shadow a name in the body: the rule reads it as unreadable.
+            Expr::Lambda(node) => {
+                let parameters = node.parameters.iter().flat_map(|p| p.iter());
+                parameters.for_each(|p| self.bind(p.name().as_str(), Binding::Unknown));
+            }
             _ => {}
         }
         visitor::walk_expr(self, expr);
