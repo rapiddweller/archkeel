@@ -58,6 +58,7 @@ pub(super) fn hazard_gap(
 ) -> (String, Record<GapFact>) {
     let (key, mut gap) = site_gap(site.kind, &site.detail, &module.name, id);
     if let GapFact::SourceResolutionGap(data) = &mut gap.data {
+        data.namespace = site.namespace;
         data.trojan_horse = Some(archkeel_facts::data::TrojanHorseSite {
             form: site.trojan_horse,
             site_name: Some(site.detail),

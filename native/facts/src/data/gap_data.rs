@@ -9,7 +9,7 @@ use crate::data::gap_effect::GapEffect;
 use crate::data::trojan_horse::TrojanHorseSite;
 use crate::ids::ModuleName;
 use crate::reason::ReasonCode;
-use crate::vocab::ResolutionDimension;
+use crate::vocab::{ResolutionDimension, SiteNamespace};
 
 /// An UNKNOWN gap of the coverage or of the `unknowns` section.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -24,6 +24,10 @@ pub struct GapData {
     /// The live collector proves that this gap does not hide a written name route.
     #[serde(skip)]
     pub no_name_route: bool,
+    /// The names that the call of an `eval` or `exec` site hands to the code that it runs (#2239).
+    /// It is not on the wire: only the live collector states it.
+    #[serde(skip)]
+    pub namespace: Option<SiteNamespace>,
     /// The reason as written.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
