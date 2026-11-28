@@ -18,6 +18,9 @@ use super::lazy_cover::Lazy;
 use super::literal;
 use crate::module::Module;
 
+#[path = "inert_texts.rs"]
+mod inert_texts;
+
 /// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
 pub(super) fn split(
     modules: &[Module],
@@ -33,7 +36,10 @@ pub(super) fn split(
         .collect();
     let reexports = table(items.iter().map(|(_, _, bound)| bound));
     let proved = proved(&items, &[&BUILTIN_TROJAN_HORSES, &IMPORT_FUNCTIONS]);
-    let reads = globals_read::inert_reads(modules);
+    let mut reads = globals_read::inert_reads(modules);
+    for (found, texts) in reads.iter_mut().zip(inert_texts::ranges(modules, binders)) {
+        found.extend(texts);
+    }
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let facts = binders.proof_facts(&BUILTINS);
         let cleared = cleared(&module.tree, &items[index].2, &facts);
