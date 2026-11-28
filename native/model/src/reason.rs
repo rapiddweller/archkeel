@@ -8,6 +8,8 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
+use archkeel_facts::vocab::RouteWithheld;
+
 use crate::causes::InterfaceHold;
 use crate::causes::{Cause, Part};
 use crate::coverage::Incomplete;
@@ -142,6 +144,32 @@ impl Hygiene {
     }
 }
 
+/// A symbol of the UML target that the symbol inventory lacks, with the module that should hold it
+/// and the cause that an import states for that module (#2089, #2242).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AbsentSymbol {
+    /// The qualified name of the symbol.
+    pub symbol: String,
+    /// The module that holds the symbol, when the scan has it.
+    pub module: Option<String>,
+    /// The cause that an import states for the module, and the place that it names.
+    pub cause: Option<(RouteWithheld, Option<String>)>,
+}
+
+impl fmt::Display for AbsentSymbol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Some(module) = &self.module else {
+            return f.write_str(&self.symbol);
+        };
+        write!(f, "{} (module {module}: ", self.symbol)?;
+        match &self.cause {
+            None => f.write_str("no cause stated)"),
+            Some((cause, None)) => write!(f, "{})", cause.as_str()),
+            Some((cause, Some(at))) => write!(f, "{}, {at})", cause.as_str()),
+        }
+    }
+}
+
 /// The largest number of absent symbols that the reason of a UML target names.
 const UML_ABSENT_SHOWN: usize = 5;
 
@@ -171,7 +199,7 @@ pub enum UmlGap {
         /// The element kinds that need other facts.
         kinds: Vec<String>,
         /// The symbols of the target that the symbol inventory does not hold, sorted (#2089).
-        absent: Vec<String>,
+        absent: Vec<AbsentSymbol>,
     },
     /// Each assessment passes, but the scope of the run is not complete: its reason.
     Incomplete(String),
@@ -207,10 +235,10 @@ impl fmt::Display for UmlGap {
                 if absent.is_empty() {
                     return Ok(());
                 }
-                let shown: Vec<&str> = absent
+                let shown: Vec<String> = absent
                     .iter()
                     .take(UML_ABSENT_SHOWN)
-                    .map(String::as_str)
+                    .map(ToString::to_string)
                     .collect();
                 write!(
                     formatter,

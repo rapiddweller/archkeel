@@ -38,6 +38,7 @@ class _HoldKind(StrEnum):
     SCOPED_GAPS = "scoped_gaps"
     UNKNOWN_IMPORTS = "unknown_imports"
     INTERFACE_IMPORTS = "interface_imports"
+    UML_ASSESSMENTS = "uml_assessments"
     NO_SOURCE_FILES = "no_source_files"
     OTHER = "other"
 
@@ -172,6 +173,7 @@ class RuleHolds:
     truncated: bool
     unnamed_imports: int
     interface: InterfaceHolds | None = None
+    uml: Mapping[str, object] | None = None
     origins: tuple[tuple[_PairOrigin, int], ...] = ()
     pair_origins: tuple[_PairOrigin | None, ...] = ()
 
@@ -391,6 +393,7 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
         truncated,
         as_count(row["unnamed_imports"], where),
         held,
+        None if row.get("uml") is None else as_object(row["uml"], where),
         _origins(row.get("origins"), where),
         tuple(_pair_origin(item, where) for item in _list(row["pairs"], where, limit)),
     )

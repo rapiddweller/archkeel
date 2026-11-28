@@ -20,7 +20,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use archkeel_contract::{head_of, Rule};
 use archkeel_eval::{CycleStep, Outcome, Violation};
 use archkeel_model::{
-    shape, Applied, Cause, CoverageGap, Incomplete, Model, PairOrigin, Reason, Shape,
+    shape, Applied, Cause, CoverageGap, Incomplete, Model, PairOrigin, Reason, Shape, UmlGap,
 };
 use serde::Serialize;
 
@@ -28,7 +28,7 @@ use serde::Serialize;
 mod interface;
 #[path = "explain_limits.rs"]
 mod limits;
-use interface::{distinct, interface_value, origin_counts};
+use interface::{distinct, interface_value, origin_counts, uml_value};
 use limits::{
     budgets_schema, version_schema, Budgets, BUDGETS, MAX_CYCLES, MAX_EVIDENCE, MAX_GAPS, MAX_HELD,
     MAX_RULES, MAX_STEPS, VERSION,
@@ -103,6 +103,8 @@ enum HoldKind {
     UnknownImports,
     /// The imports of an `interface_boundary` rule that it could not decide (`interface`).
     InterfaceImports,
+    /// The assessments of a UML target that the core cannot decide (`uml`).
+    UmlAssessments,
     NoSourceFiles,
     /// Any other cause: the text of `explained` names it.
     Other,
@@ -119,6 +121,8 @@ struct Held {
     unnamed_imports: usize,
     /// The held imports of an interface rule, as the frame writes them.
     interface: Option<serde_json::Value>,
+    /// The undecided assessments of a UML target, as the frame writes them.
+    uml: Option<serde_json::Value>,
     imports_total: usize,
 }
 
@@ -133,8 +137,19 @@ impl Held {
             ids: Vec::new(),
             unnamed_imports: 0,
             interface: None,
+            uml: None,
             imports_total: 0,
         };
+        if let Reason::Uml(UmlGap::Undecided {
+            count,
+            kinds,
+            absent,
+        }) = reason
+        {
+            held.kind = HoldKind::UmlAssessments;
+            held.uml = Some(uml_value(*count, kinds, absent));
+            held.imports_total = *count;
+        }
         if let Reason::Interface(hold) = reason {
             held.kind = HoldKind::InterfaceImports;
             held.interface = Some(interface_value(hold));
@@ -328,6 +343,9 @@ struct RuleHolds {
     /// The held imports of an interface rule, each with its stated cause.
     #[serde(skip_serializing_if = "Option::is_none")]
     interface: Option<serde_json::Value>,
+    /// The undecided assessments of a UML target rule, with the absent symbols and their causes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    uml: Option<serde_json::Value>,
 }
 
 /// One coverage gap and the rules that it holds.
@@ -389,6 +407,7 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
         HoldKind::ScopedGaps => held.ids.clone(),
         HoldKind::UnknownImports
         | HoldKind::InterfaceImports
+        | HoldKind::UmlAssessments
         | HoldKind::NoSourceFiles
         | HoldKind::Other => Vec::new(),
     }
@@ -408,7 +427,7 @@ impl Collected {
             // A pair rule counts distinct pairs; a record count would not match the noun.
             let total = match held.kind {
                 HoldKind::PairGaps | HoldKind::AllowedPairGaps => held.pairs.len(),
-                HoldKind::InterfaceImports => held.imports_total,
+                HoldKind::InterfaceImports | HoldKind::UmlAssessments => held.imports_total,
                 HoldKind::CoverageGaps
                 | HoldKind::ScopedGaps
                 | HoldKind::UnknownImports
@@ -437,6 +456,7 @@ impl Collected {
                     unnamed_imports: held.unnamed_imports,
                     origins: origin_counts(&held.pairs),
                     interface: held.interface.clone(),
+                    uml: held.uml.clone(),
                 },
             );
         }

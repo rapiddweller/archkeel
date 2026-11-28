@@ -4,6 +4,7 @@
 
 //! The facts and the assessments that the comparison of a UML target shares (AD-494).
 
+use crate::reason::AbsentSymbol;
 use archkeel_contract::{Entity, Target, VisibilityKind};
 
 use crate::imports::Import;
@@ -28,7 +29,7 @@ pub(crate) enum Assessed {
     Fail(UmlDiff),
     Unknown(String),
     /// A target symbol that the symbol inventory does not hold (#2089): its qualified name.
-    Absent(String),
+    Absent(AbsentSymbol),
 }
 
 /// The facts that the comparison reads: the modules, the imports and the symbol table.

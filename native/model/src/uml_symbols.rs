@@ -15,6 +15,7 @@ use archkeel_contract::{Entity, EntityKind, PresenceKind, Relationship, Relation
 use archkeel_contract::{ResolutionKind, Target};
 
 use crate::interface::opaque_surface;
+use crate::reason::AbsentSymbol;
 use crate::symbols::{self, Symbols};
 use crate::uml_facts::{entity, word, Assessed, Facts, UmlDiff};
 
@@ -118,7 +119,7 @@ pub(crate) fn assess(facts: &Facts<'_>, target: &Target, wanted: &Entity) -> Vec
 /// The name of a symbol that the inventory lacks, and why its module may have no symbol record:
 /// the cause that an import states for the module (#2089). The survey writes no symbol record
 /// for a module with an opaque surface, and an import of it states that cause.
-fn absent(facts: &Facts<'_>, symbol: &str) -> String {
+fn absent(facts: &Facts<'_>, symbol: &str) -> AbsentSymbol {
     let graph = facts.model.graph();
     let module = graph
         .modules()
@@ -138,13 +139,10 @@ fn absent(facts: &Facts<'_>, symbol: &str) -> String {
             .filter(|import| import.target_module() == name)
             .find_map(opaque_surface)
     });
-    match (module, cause) {
-        (Some(name), Some((word, Some(at)))) => {
-            format!("{symbol} (module {name}: {word}, {at})")
-        }
-        (Some(name), Some((word, None))) => format!("{symbol} (module {name}: {word})"),
-        (Some(name), None) => format!("{symbol} (module {name}: no cause stated)"),
-        _ => symbol.to_owned(),
+    AbsentSymbol {
+        symbol: symbol.to_owned(),
+        module: module.map(str::to_owned),
+        cause: cause.cloned(),
     }
 }
 

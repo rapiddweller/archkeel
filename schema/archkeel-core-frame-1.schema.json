@@ -2079,6 +2079,9 @@
         },
         "interface": {
           "description": "The held imports of an interface rule, each with its stated cause."
+        },
+        "uml": {
+          "description": "The undecided assessments of a UML target rule, with the absent symbols and their causes."
         }
       },
       "required": [
@@ -2114,6 +2117,11 @@
           "type": "string",
           "const": "interface_imports",
           "description": "The imports of an `interface_boundary` rule that it could not decide (`interface`)."
+        },
+        {
+          "type": "string",
+          "const": "uml_assessments",
+          "description": "The assessments of a UML target that the core cannot decide (`uml`)."
         },
         {
           "type": "string",

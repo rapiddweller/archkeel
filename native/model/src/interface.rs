@@ -344,14 +344,14 @@ pub fn withheld_cause(import: &Import) -> Option<(&'static str, Option<&str>)> {
 /// from a module with an opaque surface (`unread_all`, `outside_write` and each escape): the
 /// survey writes no symbol record for such a module (#2089). The import names its own module;
 /// the cause may sit on a module of the route.
-pub(crate) fn opaque_surface(import: &Import) -> Option<(&'static str, Option<&str>)> {
+pub(crate) fn opaque_surface(import: &Import) -> Option<&(RouteWithheld, Option<String>)> {
     use archkeel_facts::vocab::RouteWithheld::{
         AmbiguousReexport, TypeCheckingReexport, UncertainHop,
     };
-    let (cause, at) = import.route_withheld()?;
-    match cause {
+    let withheld = import.route_withheld()?;
+    match withheld.0 {
         AmbiguousReexport | UncertainHop | TypeCheckingReexport => None,
-        _ => Some((cause.as_str(), at.as_deref())),
+        _ => Some(withheld),
     }
 }
 

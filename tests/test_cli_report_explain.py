@@ -86,7 +86,8 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
     gapped = [rule for rule in unknown if rule not in uml]
     assert sorted(holds["rules"]) == unknown and (len(gapped), len(uml)) == (5, 1)
     other = holds["rules"][uml[0]]
-    assert (other["kind"], other["total"], other["gaps"]) == ("other", 0, [])
+    assert (other["kind"], other["gaps"]) == ("uml_assessments", [])
+    assert other["total"] == other["uml"]["count"] > 0
     by_gap = {gap["id"]: gap for gap in holds["gaps"]}
     total = holds["gaps_total"]
     # The computed import has its own effect. The whole-scope gaps already hold the rules.
