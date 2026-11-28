@@ -24,6 +24,8 @@ pub(in crate::survey) struct Site {
     pub trojan_horse: Option<archkeel_facts::data::TrojanHorseForm>,
     pub scope: String,
     pub binding: Option<String>,
+    /// The names that the call hands to the code that it runs (`eval`, `exec`; #2239).
+    pub namespace: Option<archkeel_facts::vocab::SiteNamespace>,
 }
 
 impl Site {
@@ -37,6 +39,7 @@ impl Site {
             trojan_horse,
             scope,
             binding,
+            namespace: None,
         }
     }
 }

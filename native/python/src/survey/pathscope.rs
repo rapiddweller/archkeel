@@ -74,6 +74,7 @@ pub(super) fn settle(
                     trojan_horse: None,
                     scope: String::new(),
                     binding: None,
+                    namespace: None,
                 },
             )),
         }

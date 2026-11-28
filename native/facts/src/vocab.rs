@@ -402,6 +402,22 @@ closed! {
 }
 
 closed! {
+    /// The names that the call of an `eval`, `exec` or `compile` site hands to the code that it
+    /// runs (#2239).
+    pub enum SiteNamespace {
+        /// A new mapping that the call builds (`{}`, a dict display, `dict(...)`).
+        Fresh = "fresh",
+        /// The names of the product: `globals()`, `locals()`, `vars(...)`, `__dict__`, or an entry
+        /// of `sys.modules`. The code that runs can write them.
+        Shared = "shared",
+        /// No mapping: the code runs in the names of the caller.
+        Default = "default",
+        /// A mapping that the scan does not trace to its origin.
+        Unknown = "unknown",
+    }
+}
+
+closed! {
     /// The context of a reference.
     pub enum ReferenceContext {
         /// The reference sits in an annotation.

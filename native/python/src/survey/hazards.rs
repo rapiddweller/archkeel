@@ -46,6 +46,8 @@ mod comprehension;
 mod inert;
 #[path = "hazards_modules_get.rs"]
 mod modules_get;
+#[path = "hazards_namespace.rs"]
+mod namespace;
 #[path = "hazards_reexport.rs"]
 mod reexport;
 #[path = "hazards_reflect.rs"]
@@ -159,6 +161,7 @@ impl Walk<'_> {
             trojan_horse,
             scope: self.scope.join("."),
             binding: None,
+            namespace: None,
         });
     }
 
@@ -263,7 +266,12 @@ impl Walk<'_> {
                 if bare && call.arguments.is_empty() {
                     self.push(DYNAMIC, "vars", expr);
                 }
+                let first = self.found.len();
                 visitor::walk_expr(self, expr);
+                let class = namespace::of(call, &|name| {
+                    !self.local(name) && !self.bound.contains_key(name)
+                });
+                namespace::attach(&mut self.found[first..], call, class);
             }
         }
     }
