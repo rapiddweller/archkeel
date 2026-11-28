@@ -41,6 +41,12 @@ Gap records carry no part name, so a count per part is not read. No gate reads o
 5. `make self-check` prints the verdict of the system and of each part, and the measured groups from
    the system frame.
 
+6. The jobs that run the system check on a pull request or in the full run restore the facts work
+   that main saved (AD-1350), read-only. The first run of this change on a pull request showed why: the
+   one system run started with an empty facts directory and the core gave up at its limit of 600 s
+   ("the core did not answer in 600 s"). The old native scan needed 385 to 568 s alone on CI, so the
+   margin was already small. The gate showed the refusal as a missing result, as designed.
+
 ## Checks
 
 `tests/test_self_check_gate.py` (a FAIL or a violation in one part, a part without rows, no

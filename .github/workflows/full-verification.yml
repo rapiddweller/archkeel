@@ -56,6 +56,16 @@ jobs:
       - name: Install the pinned Rust toolchain once, before any parallel step
         run: make type-reach-setup
 
+      # AD-1380: the one system run reads native/ with compiler facts. This job only reads the work
+      # that main saved (AD-1350); without it the run starts cold and meets the 600 s limit of the core.
+      - name: Restore the compiler facts work of main
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/archkeel/rustc-facts
+          key: rustc-facts-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**') }}
+          restore-keys: |
+            rustc-facts-main-${{ runner.os }}-
+
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
