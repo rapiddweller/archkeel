@@ -157,16 +157,35 @@ def _stated_root(file: Path) -> str:
 
 
 # `CLOCK_REALTIME_COARSE` (Linux, value 5): the clock that the kernel stamps `st_ctime` with before
-# multigrain timestamps (6.13). It lags `time_ns()` by up to one tick, so a write right after a
-# request starts could carry a time below the start and pass the check (#2204).
+# multigrain timestamps (6.13). It moves one tick (1 to 10 ms) at a time.
 _COARSE_CLOCK = 5
+_TICK_WAIT_S = 0.1
 
 
 def request_started_ns() -> int:
-    """The start of a request on the clock of file times, for `bind_request`."""
-    if sys.platform.startswith("linux"):
-        return time.clock_gettime_ns(_COARSE_CLOCK)
-    return time.time_ns()
+    """The start of a request on the clock of file times, for `bind_request`.
+
+    On Linux the start waits for two ticks of the coarse clock and is the time of the second. A
+    file written before the call has a change time below it: the coarse stamp is of an earlier
+    tick, and a fine stamp (kernel 6.13 and later) is before the call, which is before the tick
+    that the call saw when the coarse clock lagged by less than one tick. A write after the call
+    has the time of this tick or a later one, so it is at or above the start and `bind_request`
+    refuses it. Within one tick the two cannot be told apart (#2204 missed the first write, #2212
+    refused the second): the wait removes the tie. It costs at most two ticks.
+    """
+    if not sys.platform.startswith("linux"):
+        return time.time_ns()
+    last = time.clock_gettime_ns(_COARSE_CLOCK)
+    moved = 0
+    deadline = time.monotonic() + _TICK_WAIT_S
+    while True:
+        now = time.clock_gettime_ns(_COARSE_CLOCK)
+        if now != last:
+            last, moved = now, moved + 1
+        # A clock that does not move in the limit gives the last time: a refusal, never a miss.
+        if moved == 2 or time.monotonic() >= deadline:
+            return now
+        time.sleep(0.0002)
 
 
 def bind_request(
