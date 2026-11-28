@@ -44,6 +44,9 @@ pub enum Cause {
     Undecided(usize),
     /// The receipt of the rule is not complete: why (slice S7, AD-384).
     Receipt(&'static str),
+    /// A written form can hide a site of a construct that the rule forbids, in a module that the
+    /// rule judges (#1537): the construct and the first such module, as `construct in module`.
+    UnseenForm(String),
     /// A component of an inside contract claims a package or a module outside its parent: the
     /// parent key of the mount (`inside_source_domain_incomplete`, AD-385).
     InsideSourceDomain(String),
@@ -245,6 +248,10 @@ impl fmt::Display for Cause {
             Cause::Receipt(why) => {
                 write!(formatter, "the receipt of the rule is not complete: {why}")
             }
+            Cause::UnseenForm(site) => write!(
+                formatter,
+                "a written form can hide a site of {site}: the survey does not record every site there"
+            ),
             Cause::InsideSourceDomain(parent) => write!(
                 formatter,
                 "a component inside {parent} claims a module outside its parent"

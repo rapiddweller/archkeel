@@ -104,6 +104,17 @@ pub(crate) fn receipt<'a>(
             }
             needs_premise = true;
         }
+        // A form in a module that the rule judges can hide a site, though the survey is `supported`.
+        let mut hidden = inventory
+            .unseen
+            .iter()
+            .filter(|(owner, hidden)| *hidden == name && judges(model, rule, owner))
+            .map(|(owner, _)| owner.as_str())
+            .collect::<Vec<_>>();
+        hidden.sort_unstable();
+        if let Some(first) = hidden.first() {
+            return Err(Cause::UnseenForm(format!("{name} in {first}")).into());
+        }
     }
     if rule.selector().is_some() {
         selector_receipt(inventory, model, rule, &mut work)?;
@@ -200,18 +211,27 @@ fn owner(site: &ConstructSite) -> &str {
 
 /// Whether the site lies in the source of the rule.
 fn in_source(model: &Model, rule: &ForbiddenConstruct, site: &ConstructSite) -> bool {
-    let owner = owner(site);
+    owner_in_source(model, rule, &site.owner)
+}
+
+fn owner_in_source(model: &Model, rule: &ForbiddenConstruct, full_owner: &str) -> bool {
+    let owner = full_owner.split(':').next().unwrap_or_default();
     model
         .graph()
         .modules()
         .iter()
-        .any(|(id, module)| model.holds(id) && in_scope(&site.owner, module.name()))
+        .any(|(id, module)| model.holds(id) && in_scope(full_owner, module.name()))
         && in_scope(owner, rule.source().as_text())
 }
 
 fn selected(model: &Model, rule: &ForbiddenConstruct, site: &ConstructSite) -> bool {
-    let owner = owner(site);
-    in_source(model, rule, site)
+    judges(model, rule, &site.owner)
+}
+
+/// Whether the rule judges the code of `full_owner`: it lies in the source and no exemption names it.
+fn judges(model: &Model, rule: &ForbiddenConstruct, full_owner: &str) -> bool {
+    let owner = full_owner.split(':').next().unwrap_or_default();
+    owner_in_source(model, rule, full_owner)
         && !rule
             .allowed_sources()
             .iter()
@@ -261,7 +281,15 @@ pub(crate) fn unused_allowances(model: &Model, rule: &ForbiddenConstruct) -> Vec
     }
     let owners: Vec<&str> = sites.iter().map(|site| owner(site)).collect();
     let (allowed, exact) = (rule.allowed_sources(), rule.exact_sources());
-    let mut found = unused_by_module(allowed, exact, &owners, |_| false);
+    // An entry that names code with a form that can hide a site is not unused: the site can be there.
+    let words: Vec<String> = rule.constructs().iter().map(word).collect();
+    let unseen = &model.graph().constructs().unseen;
+    let hidden = |entry: &str| {
+        unseen.iter().any(|(module, hidden)| {
+            words.contains(hidden) && (in_scope(module, entry) || in_scope(entry, module))
+        })
+    };
+    let mut found = unused_by_module(allowed, exact, &owners, hidden);
     let used: Vec<usize> = sites
         .iter()
         .flat_map(|site| ignores_at(rule, site))

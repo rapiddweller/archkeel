@@ -94,7 +94,9 @@ A re-export of a package is read through its uses: a name of a package that anot
 uses as a value escapes the package, unless its origin cannot be a module of the scan (AD-530). A
 read of `__globals__` is no gap when the dict only feeds a lookup of a literal key; library code
 that gives the dict back is not seen (AD-530).
-Python construct rules stay UNKNOWN when the collector cannot prove that it sees every site.
+Python construct rules are decided for each module (AD-1496): a module with no form that can hide a site proves the
+absence, and a module with such a form holds only the rules that judge it. A builtin that a variable names is dynamic code
+and not followed. `string_literal_compare` and `any_annotation` stay UNKNOWN for the run.
 For `type_ignore`, a single-line call with a plain or dotted name, assignment to one name,
 annotated name, or return with a value can carry an exact trailing comment. Other unread type comments
 keep the rule UNKNOWN (AD-780, AD-868, AD-872, AD-908, AD-942, AD-990, AD-997). `interface_boundary` and symbol-level

@@ -4538,6 +4538,20 @@
             "kind",
             "data"
           ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "unseen_form"
+            },
+            "data": {
+              "$ref": "#/$defs/PlainConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
         }
       ]
     },
@@ -6202,6 +6216,11 @@
           "type": "string",
           "const": "dunder_dict",
           "description": "A use of `__dict__`."
+        },
+        {
+          "type": "string",
+          "const": "unseen_form",
+          "description": "A written form that can hide a site of a construct in its module (#1537)."
         }
       ],
       "description": "The kind of a record. The section of the record decides its data type (`sections`).\n`ExceptionGap` replaces the open kind of protocol 9: there, the kind of an analyzer failure\nis the name of the exception class (`SyntaxError`). The name is a field of the record."

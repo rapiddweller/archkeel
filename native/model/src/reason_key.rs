@@ -222,6 +222,7 @@ fn cause_entries(cause: &Cause) -> Vec<Stable> {
         Cause::LayerMetadata(rule) => ("layer_metadata", Some(rule.as_str())),
         Cause::NoRuleSubjects(rule) => ("no_rule_subjects", Some(rule.as_str())),
         Cause::Receipt(why) => ("receipt", Some(*why)),
+        Cause::UnseenForm(site) => ("unseen_form", Some(site.as_str())),
         Cause::InsideSourceDomain(parent) => ("inside_source_domain", Some(parent.as_str())),
         Cause::OutsideNamespace(reference) => ("outside_namespace", Some(reference.as_str())),
         Cause::OwnedFileOwner(path) => ("owned_file_owner", Some(path.as_str())),

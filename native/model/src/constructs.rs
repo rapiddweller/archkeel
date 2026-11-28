@@ -30,6 +30,8 @@ pub struct ConstructSite {
 #[derive(Debug)]
 pub(crate) struct Constructs {
     pub(crate) sites: Vec<ConstructSite>,
+    /// The module and the construct of each form that can hide a site there (#1537).
+    pub(crate) unseen: Vec<(String, String)>,
     pub(crate) symbols: Vec<(String, String)>,
     pub(crate) capabilities: Vec<(String, ConstructSupport)>,
     pub(crate) constructs_measured: bool,
@@ -64,6 +66,7 @@ impl Constructs {
     pub(crate) fn derive(facts: &Facts, trusted: bool) -> Result<Self, Reason> {
         let mut found = Self {
             sites: Vec::new(),
+            unseen: Vec::new(),
             symbols: Vec::new(),
             capabilities: Vec::new(),
             constructs_measured: false,
@@ -103,6 +106,12 @@ fn collect(found: &mut Constructs, section: &Section, work: &mut Work) -> Result
             found.constructs_measured = true;
             for record in records {
                 work.charge(record.evidence_ids.len().saturating_add(1))?;
+                if let ConstructFact::UnseenForm(data) = &record.data {
+                    found
+                        .unseen
+                        .push((data.owner.clone(), data.construct.clone()));
+                    continue;
+                }
                 if let Some(site) = construct(record) {
                     found.sites.push(site);
                 }
