@@ -97,6 +97,12 @@ def test_a_class_without_a_declared_attribute_stays_unknown(
     assert "absent symbol: the symbol inventory is not complete" in text
     # #2089: the row names the symbol that the inventory lacks.
     assert re.search(r"not in the symbol inventory: \S*A\.x\b", text), text
+    # #2242: the frame holds the same cause, typed, with every absent symbol.
+    hold = result["frame"]["explain"]["holds"]["rules"][ROW]
+    assert (hold["kind"], hold["total"]) == ("uml_assessments", 1)
+    [absent] = hold["uml"]["absent"]
+    assert absent["symbol"].endswith("A.x") and absent["module"] is not None
+    assert hold["uml"]["classes"] == [{"class": absent["class"], "count": 1}]
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))
