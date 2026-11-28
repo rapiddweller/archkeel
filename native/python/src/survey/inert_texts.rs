@@ -29,9 +29,15 @@ use ruff_text_size::{Ranged, TextRange};
 
 use crate::module::Module;
 use crate::survey::binders::Binders;
+use crate::survey::copy_local::names_a_frame_write;
 
 /// The ranges of the inert string literals of each module.
 pub(super) fn ranges(modules: &[Module], binders: &[Binders]) -> Vec<HashSet<TextRange>> {
+    // A trace or profile function, or a write of a frame, can replace a name between the two reads
+    // of `type(name) is str and name in D`: the proof holds in no function of such a scan.
+    let traced = modules
+        .iter()
+        .any(|module| names_a_frame_write(&module.tree.body));
     let bound: Vec<Vec<Candidate>> = modules
         .iter()
         .zip(binders)
@@ -54,6 +60,7 @@ pub(super) fn ranges(modules: &[Module], binders: &[Binders]) -> Vec<HashSet<Tex
         .map(|((module, binders), candidates)| {
             let mut found = HashSet::new();
             let mut tests = Tests {
+                traced,
                 scopes: Vec::new(),
                 visible: &|name| binders.builtin_visible(name),
                 found: &mut found,
@@ -202,6 +209,8 @@ impl<'a> Visitor<'a> for Outside<'_, '_> {
 
 /// The guarded tests of the module, and for each name: its loads and the loads that stand in a guarded test.
 struct Tests<'f> {
+    /// The scan names a trace function or a frame write: no guard proves a type.
+    traced: bool,
     /// The scopes that hold the walk: true for a function body, false for a class body.
     scopes: Vec<bool>,
     visible: &'f dyn Fn(&str) -> bool,
@@ -215,7 +224,7 @@ impl Tests<'_> {
     /// supplies (`__prepare__` of a metaclass, `exec` with a mapping), and then two reads of one
     /// name differ.
     fn guard(&mut self, values: &[Expr]) {
-        if self.scopes.last() != Some(&true) {
+        if self.traced || self.scopes.last() != Some(&true) {
             return;
         }
         for pair in values.windows(2) {

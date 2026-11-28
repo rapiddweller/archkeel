@@ -145,3 +145,24 @@ fn a_bound_display_that_another_module_reads_keeps_the_site() {
     let found = sites(&[rules, "from app.m0 import f\n"]);
     assert!(!found.iter().any(|(at, _)| *at == 0), "{found:?}");
 }
+
+#[test]
+fn a_scan_that_names_a_trace_function_or_a_frame_write_has_no_guard() {
+    let guarded = "def f(n):\n    return type(n) is str and n in {\"__globals__\"}\n";
+    assert_eq!(sites(&[guarded]), Vec::new());
+    for hook in [
+        "import sys\nsys.settrace(lambda *a: None)\n",
+        "import sys\nsys.setprofile(None)\n",
+        "import threading\nthreading.settrace(None)\n",
+        "import threading\nthreading.setprofile(None)\n",
+        "def trace(frame, event, arg):\n    frame.f_locals['n'] = 1\n",
+        "def arm(frame):\n    frame.f_trace = None\n",
+    ] {
+        let found = sites(&[guarded, hook]);
+        assert!(found.iter().any(|(at, _)| *at == 0), "{hook}: {found:?}");
+    }
+    // A scan that names none of them keeps the guard.
+    assert!(!sites(&[guarded, "import sys\nsys.exit(0)\n"])
+        .iter()
+        .any(|(at, _)| *at == 0));
+}

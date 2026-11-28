@@ -81,7 +81,21 @@ PREPARE = (
     "def run():\n    class C(metaclass=Meta):\n"
     "        ok = type(n) is str and n == '__globals__'\n\n\n"
 )
+TRACE = (
+    "import sys\n\nn = 'x'\n\n\ndef check():\n    return (type(n) is str\n"
+    "            and n == '__globals__')\n\n\n"
+    "def tracer(frame, event, arg):\n    global n\n"
+    "    if event == 'line' and frame.f_code.co_name == 'check':\n"
+    "        if frame.f_lineno == check.__code__.co_firstlineno + 2:\n"
+    "            n = Lookup()\n    return tracer\n\n\n"
+    "def run():\n    sys.settrace(tracer)\n    try:\n        check()\n"
+    "    finally:\n        sys.settrace(None)\n\n\n"
+)
 PLANTS = {
+    "global name that a trace function replaces between the two reads": (
+        quiet(EQ + TRACE, "run()"),
+        "",
+    ),
     "class body whose namespace answers differently the second time": (
         quiet(EQ + PREPARE, "run()"),
         "",
