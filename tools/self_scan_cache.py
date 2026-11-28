@@ -52,6 +52,11 @@ STATIC_FILES = (
     "docs/architecture/architecture-system.json",
     "docs/architecture/shell.toml",
 )
+# A collector can read a script or source file anywhere (the walk outside the modules), so every
+# such file counts, wherever it stands.
+SOURCE_SUFFIXES = (".py", ".pyi", ".rs", ".ts", ".tsx", ".js", ".mjs", ".cjs")
+# Build output and tool folders that the collectors skip.
+SKIPPED_DIRS = {"target", "node_modules", ".venv", "__pycache__", ".mypy_cache", ".ruff_cache"}
 # The tree is hashed file by file: a larger tree is not hashed, so the caller scans.
 MAX_FILES = 200_000
 MAX_DEPTH = 100
@@ -67,7 +72,12 @@ def tracked(root: Path) -> list[tuple[str, str]]:
     others = subprocess.run(
         ["git", "ls-files", "--others", "--exclude-standard", "-z"], capture_output=True, cwd=root
     )
-    if cached.returncode != 0 or others.returncode != 0:
+    ignored = subprocess.run(
+        ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"],
+        capture_output=True,
+        cwd=root,
+    )
+    if cached.returncode != 0 or others.returncode != 0 or ignored.returncode != 0:
         raise Uncovered("git ls-files failed")
     rows: dict[str, str] = {}
     for item in cached.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
@@ -76,6 +86,16 @@ def tracked(root: Path) -> list[tuple[str, str]]:
             rows[path] = meta.split()[0]
     for path in others.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
         if path:
+            rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
+    # A collector reads an ignored source file too: it counts, and an ignored folder is walked.
+    for path in ignored.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
+        if path.endswith("/"):
+            for folder, dirs, names in os.walk(root / path):
+                dirs[:] = [name for name in dirs if name not in SKIPPED_DIRS]
+                for name in names:
+                    if name.endswith(SOURCE_SUFFIXES):
+                        rows.setdefault(str((Path(folder) / name).relative_to(root)), "100644")
+        elif path.endswith(SOURCE_SUFFIXES) and not SKIPPED_DIRS.intersection(path.split("/")):
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
     if len(rows) > MAX_FILES:
         raise Uncovered("the tree is larger than the limit")
@@ -95,6 +115,7 @@ def is_static(path: str, mode: str) -> bool:
         or name == "archkeel.toml"
         or (name.endswith(".json") and "contract" in name)
         or name.startswith("rust-toolchain")
+        or name.endswith(SOURCE_SUFFIXES)
     )
 
 
@@ -103,7 +124,17 @@ def content(root: Path, path: str, mode: str) -> str:
     target = root / path
     try:
         if mode == "120000" or target.is_symlink():
-            return "link:" + os.readlink(target)
+            # A followed link counts with its target, which can stand outside the static inputs.
+            return (
+                "link:"
+                + os.readlink(target)
+                + ">"
+                + (
+                    content(root, os.path.relpath(target.resolve(), root), "100644")
+                    if target.exists()
+                    else "dangling"
+                )
+            )
         if target.is_dir():
             # A cited directory counts by the names in it: the core asks whether the path exists.
             names = "\0".join(sorted(os.listdir(target)))
@@ -129,7 +160,6 @@ def static_hash(root: Path) -> str:
     pairs = [(path, content(root, path, mode)) for mode, path in files if is_static(path, mode)]
     if not pairs:
         raise Uncovered("no static input found")
-    # The count of the files below the Rust walk counts too: a new file elsewhere changes no key.
     return digest(pairs)
 
 

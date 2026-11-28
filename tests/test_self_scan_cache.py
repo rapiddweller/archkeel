@@ -95,9 +95,7 @@ def test_the_same_inputs_reuse_the_saved_result_byte_for_byte(repo: Path) -> Non
     assert (repo.parent / "out.json").read_text() == json.dumps(RESULT)
 
 
-@pytest.mark.parametrize(
-    "name", ["docs/other.md", "README.md", "tests/test_x.py", "fixtures/f.txt"]
-)
+@pytest.mark.parametrize("name", ["docs/other.md", "README.md", "fixtures/f.txt"])
 def test_a_file_that_the_scan_does_not_read_keeps_the_key(repo: Path, name: str) -> None:
     directory = saved(repo)
     (repo / name).parent.mkdir(parents=True, exist_ok=True)
@@ -141,6 +139,9 @@ def test_a_changed_static_input_is_a_miss(repo: Path, name: str) -> None:
         "elsewhere/archkeel.toml",
         "inner/architecture-contract.json",
         "docs/architecture/inner/architecture-contract.json",
+        "tools/probe.py",
+        "tests/probe.py",
+        "fixtures/probe.rs",
     ],
 )
 def test_a_new_file_that_can_decide_the_scan_is_a_miss_also_when_not_added(
@@ -230,3 +231,31 @@ def test_the_key_prefix_names_the_static_inputs_only(repo: Path) -> None:
     assert tool(repo, "key").stdout == before
     (repo / "uv.lock").write_text("changed\n")
     assert tool(repo, "key").stdout != before
+
+
+def test_an_ignored_source_file_that_a_collector_reads_is_a_miss(repo: Path) -> None:
+    (repo / ".gitignore").write_text("ignored/\nsrc/archkeel/skip.py\n")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
+    directory = saved(repo)
+    (repo / "ignored").mkdir()
+    (repo / "ignored/note.txt").write_text("not source\n")
+    assert reuse(repo, directory).returncode == 0
+    (repo / "src/archkeel/skip.py").write_text("import archkeel.cli\n")
+    assert reuse(repo, directory).returncode == 1
+    (repo / "src/archkeel/skip.py").unlink()
+    assert reuse(repo, directory).returncode == 0
+    (repo / "ignored/hidden.py").write_text("x = 1\n")
+    assert reuse(repo, directory).returncode == 1
+
+
+def test_a_followed_configuration_link_counts_with_its_target(repo: Path) -> None:
+    (repo / "docs/overrides.toml").write_text("[source]\n")
+    (repo / "native/.cargo").mkdir()
+    (repo / "native/.cargo/config.toml").symlink_to("../../docs/overrides.toml")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "link")
+    directory = saved(repo)
+    assert reuse(repo, directory).returncode == 0
+    (repo / "docs/overrides.toml").write_text("[source.crates-io]\nreplace-with = 'x'\n")
+    assert reuse(repo, directory).returncode == 1

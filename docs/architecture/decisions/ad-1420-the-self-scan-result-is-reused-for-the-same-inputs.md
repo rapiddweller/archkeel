@@ -13,7 +13,9 @@ workflows gives the scan the same inputs as main, so it gives the same result.
    result cache. It is not a comparison and it is not a gate.
 2. Static inputs, hashed by content: `native/`, `src/`, `studio/`, `schema/`, `tools/rustc-facts/`,
    `.archkeel/`, every `archkeel.toml`, every `*contract*.json`, every `rust-toolchain*`, every
-   `.cargo` file, every link, `pyproject.toml`, `uv.lock`, `Makefile`, the system document and the
+   `.cargo` file, every link with the content of its target, every source file (`.py`, `.pyi`, `.rs`,
+   `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`) wherever it stands, also an ignored one that a collector can read,
+   `pyproject.toml`, `uv.lock`, `Makefile`, the system document and the
    shell configuration. The key also holds the documents that the scan read: the files that the core
    bound (`contract_files`) and every path that a contract cites, also a path that is absent.
 3. Main saves the result after the gate is green. The tool refuses a result that does not show its
