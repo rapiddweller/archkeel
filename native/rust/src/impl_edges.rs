@@ -478,10 +478,6 @@ mod orphans;
 #[path = "impl_flow.rs"]
 mod flow;
 
-/// The pool of candidates that wait for the value flow (#1942).
-#[path = "impl_pending.rs"]
-mod pending;
-
 /// The resolution of a call on a plain `self` (AD-383).
 #[path = "impl_receivers.rs"]
 mod receivers;
