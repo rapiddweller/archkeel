@@ -74,7 +74,8 @@ pub struct Held {
 
 /// The largest number of gaps that a reason shows.
 const HELD_SHOWN: usize = 5;
-const HELD_KEPT: usize = 20;
+/// The most held imports that a hold keeps; a hold over it says so (`InterfaceHold::total`).
+const HELD_KEPT: usize = 50_000;
 
 impl Held {
     /// The gap records `(source, target)` that hold a rule, or `None` for no gap. A `Held` is a
