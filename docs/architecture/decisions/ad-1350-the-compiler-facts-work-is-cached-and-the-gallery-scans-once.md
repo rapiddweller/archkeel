@@ -35,15 +35,26 @@ projects 3 s. Each project ran the core twice: once for the JSON report and once
 
 ## Decision
 
-1. CI saves the facts work under a key that holds the hash of the native tree. A push that leaves
-   `native/` alone finds the exact key and saves nothing. A push that changes it restores the latest
-   entry and builds only what changed. Pages restores the latest entry and never saves.
+1. CI saves the facts work under a key with the hash of `native/Cargo.lock`, the toolchain and the
+   driver. It does not hold the native sources: after each checkout the members are rebuilt anyway
+   (the "touched" row above), so only the third-party builds are worth keeping. The entry is saved
+   when a dependency changes, a few times a day at most, not at each push. Pages restores the latest
+   entry and never saves.
 2. The gallery runs the core once for each project. The page form with `--json` writes the page and
    prints the envelope. The JSON report is `envelope.frame` serialised without spaces; this equals
    the file of `--format json` byte for byte. The system run keeps two runs, because its page form
    adds `explain` rows to the frame.
 
 No timeout changes.
+
+## Size of the entry
+
+The directory is 2.5 GB, nine build trees of 278 MB (one for each configuration of the facts run).
+Packed with zstd it is 586 MB. On 2026-11-28 the repository holds 9,853 MB in 46 caches, at the
+10 GB limit. The largest users are the Windows check caches of the pull requests (458 MB each, one
+for each pushed commit). One new entry of 586 MB, saved a few times a day, evicts less than one
+Windows entry for each save. A key that held the native hash would save one entry for each push to
+`native/` (about 20 a day) and evict the caches of the pull requests, so it is not used.
 
 ## Checks
 
