@@ -25,11 +25,12 @@ pub(crate) enum Construct {
     Cast,
     TypeIgnore,
     Placeholder,
+    StringImport,
 }
 
 impl Construct {
     /// Each construct, in the order of the reply.
-    pub(crate) const ALL: [Construct; 11] = [
+    pub(crate) const ALL: [Construct; 12] = [
         Construct::Assert,
         Construct::BroadExcept,
         Construct::DunderDict,
@@ -41,6 +42,7 @@ impl Construct {
         Construct::Cast,
         Construct::TypeIgnore,
         Construct::Placeholder,
+        Construct::StringImport,
     ];
 
     /// The word of the construct in the reply and in the contract.
@@ -57,6 +59,7 @@ impl Construct {
             Construct::Cast => "cast",
             Construct::TypeIgnore => "type_ignore",
             Construct::Placeholder => "placeholder_body",
+            Construct::StringImport => "string_import",
         }
     }
 }
@@ -113,7 +116,8 @@ impl Support {
             | Construct::StringLiteralCompare
             | Construct::Getattr
             | Construct::TypeIgnore
-            | Construct::Placeholder => Seen::Supported,
+            | Construct::Placeholder
+            | Construct::StringImport => Seen::Supported,
         };
         Support(
             Construct::ALL.iter().map(|c| (*c, seen(*c))).collect(),

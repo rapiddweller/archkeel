@@ -35,6 +35,12 @@ pub fn matches<'a>(
         if !selected(model, rule, site) {
             continue;
         }
+        // AD-1440: a declared string import is no violation. The premise names it.
+        if crate::string_imports::is_site(site)
+            && crate::string_imports::declared(model, site).is_some()
+        {
+            continue;
+        }
         if let Some(known) = matching(rule, site) {
             found.push(ConstructMatch { site, known });
         }

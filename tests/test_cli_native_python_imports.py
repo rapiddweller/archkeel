@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from core_support import EMPTY_GRAPH
+from string_import_rows import rows
 from test_cli_core_only_scan import command
 
 RULE = {"rationale": "Keep the boundary.", "provenance": ["p"], "decided_by": "architect"}
@@ -106,10 +107,6 @@ def verdict(binary: Path, root: Path, verb: str = "validate", *flags: str) -> di
     assert "refusal" not in result, (result, done.stderr)
     assert done.returncode == result["exit_code"], result
     return result
-
-
-def rows(result: dict[str, Any]) -> dict[str, str]:
-    return {rule: row[1] for rule, row in result["frame"]["rules"].items()}
 
 
 @pytest.mark.parametrize("kind", ["class", "function", "alias"])

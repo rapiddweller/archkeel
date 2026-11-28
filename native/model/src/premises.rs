@@ -32,6 +32,9 @@ pub enum PremiseKind {
     TrojanHorseReach,
     /// A stated user outside the scan of a public item; the subject is `module:name`.
     ExternalUser,
+    /// A string import that the team checked (`declarations.string_imports`, AD-1440); the subject
+    /// is `module:line`.
+    StringImport,
     /// A premise that the contract declares by name; the subject names what it covers.
     Declared(PremiseName),
 }
@@ -41,13 +44,18 @@ pub fn kind_word(kind: PremiseKind) -> &'static str {
     match kind {
         PremiseKind::TrojanHorseReach => "trojan_horse_reach",
         PremiseKind::ExternalUser => "external_user",
+        PremiseKind::StringImport => "string_import",
         PremiseKind::Declared(name) => archkeel_contract::premise_word(name),
     }
 }
 
 /// The premise kind of a word of the frame, or `None` for a word that names no kind.
 pub fn of_kind_word(word: &str) -> Option<PremiseKind> {
-    let fixed = [PremiseKind::TrojanHorseReach, PremiseKind::ExternalUser];
+    let fixed = [
+        PremiseKind::TrojanHorseReach,
+        PremiseKind::ExternalUser,
+        PremiseKind::StringImport,
+    ];
     let declared = archkeel_contract::PREMISE_NAMES.map(PremiseKind::Declared);
     fixed
         .into_iter()
@@ -80,8 +88,19 @@ pub fn rule_premises(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
         kind: PremiseKind::ExternalUser,
         subject: format!("{}:{}", item.module, item.name),
     });
+    let strings = match rule {
+        Rule::ForbiddenConstruct(rule) if crate::string_imports::forbids(rule) => {
+            crate::string_imports::applied(model)
+        }
+        _ => Vec::new(),
+    };
+    let strings = strings.into_iter().map(|(_, subject)| UsedPremise {
+        kind: PremiseKind::StringImport,
+        subject,
+    });
     trojan_horses
         .chain(users)
+        .chain(strings)
         .chain(declared(model, rule))
         .collect()
 }
@@ -157,6 +176,7 @@ impl Model {
 pub fn premise_words(trojan_horses: usize, used: &[(PremiseKind, &str)]) -> Option<String> {
     let plural = |n: usize| if n == 1 { "" } else { "s" };
     let mut users: BTreeSet<&str> = BTreeSet::new();
+    let mut strings: BTreeSet<&str> = BTreeSet::new();
     let mut declared: BTreeSet<PremiseName> = BTreeSet::new();
     for (kind, subject) in used {
         match kind {
@@ -165,6 +185,9 @@ pub fn premise_words(trojan_horses: usize, used: &[(PremiseKind, &str)]) -> Opti
             }
             PremiseKind::Declared(name) => {
                 declared.insert(*name);
+            }
+            PremiseKind::StringImport => {
+                strings.insert(subject);
             }
             PremiseKind::TrojanHorseReach => {}
         }
@@ -176,6 +199,13 @@ pub fn premise_words(trojan_horses: usize, used: &[(PremiseKind, &str)]) -> Opti
             if trojan_horses == 1 { "" } else { "es" }
         )
     });
+    let string_words = (!strings.is_empty()).then(|| {
+        format!(
+            "{} declared string import{}",
+            strings.len(),
+            plural(strings.len())
+        )
+    });
     let user_words = (count > 0).then(|| format!("{count} stated external user{}", plural(count)));
     let declared_words = declared
         .into_iter()
@@ -183,6 +213,7 @@ pub fn premise_words(trojan_horses: usize, used: &[(PremiseKind, &str)]) -> Opti
     let parts: Vec<String> = trojan_horse_words
         .into_iter()
         .chain(user_words)
+        .chain(string_words)
         .chain(declared_words)
         .collect();
     match parts.as_slice() {

@@ -58,7 +58,8 @@ fn the_reply_lists_each_construct_once_in_its_order() {
             "dynamic_import",
             "cast",
             "type_ignore",
-            "placeholder_body"
+            "placeholder_body",
+            "string_import"
         ]
     );
 }
@@ -68,9 +69,15 @@ fn a_protocol_receipt_does_not_claim_unconditional_support_on_the_wire() {
     let mut conditional = Support::start();
     conditional.observe_placeholder(super::PlaceholderCoverage::UsesProtocol);
     assert!(conditional.placeholder_under_premise());
+    let placeholder = |support: &Support| {
+        support
+            .reply()
+            .into_iter()
+            .find(|(word, _)| *word == "placeholder_body")
+    };
     assert_eq!(
-        conditional.reply().last(),
-        Some(&("placeholder_body", "partial"))
+        placeholder(&conditional),
+        Some(("placeholder_body", "partial"))
     );
     let mut unread = Support::start();
     unread.downgrade(Construct::Placeholder);

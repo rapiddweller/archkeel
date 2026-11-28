@@ -169,5 +169,7 @@ closed! {
         TypeIgnore = "type_ignore",
         /// A position that crosses a package with no annotation.
         MissingCrossPackageAnnotation = "missing_cross_package_annotation",
+        /// An import call that names its module by a literal string (AD-1440).
+        StringImport = "string_import",
     }
 }

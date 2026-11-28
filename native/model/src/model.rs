@@ -92,6 +92,16 @@ impl Model {
         scope: State,
         domain: Option<Domain>,
     ) -> Model {
+        // AD-1440: the root contract of a run whose collector states the construct `string_import`
+        // holds the built-in rule `STRING-IMPORT`. A mount does not. Other languages state none.
+        let states =
+            (graph.constructs().capabilities.iter()).any(|(name, _)| name == "string_import");
+        let contract = match graph.settings().namespace() {
+            namespace if domain.is_none() && states && !namespace.is_empty() => {
+                contract.with_string_import_rule(namespace)
+            }
+            _ => contract,
+        };
         let modules = graph.modules();
         let owners = match &domain {
             Some(domain) => {

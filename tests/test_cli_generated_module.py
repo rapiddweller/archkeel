@@ -37,4 +37,4 @@ def test_a_missing_module_without_an_ignore_rule_does_not_claim_one(
     assert "app.gen (no file; it may be generated, or the import is wrong)" in done.stdout
     assert "ignore rule" not in done.stdout
     first = done.stdout.splitlines()[0]
-    assert "all 1 rules pass; the run stays UNKNOWN because 1 gaps are open" in first
+    assert "1 of 2 rules cannot be decided" in first

@@ -24,6 +24,7 @@ For an EE or CE gate, follow [docs/migration-4-to-5.md](docs/migration-4-to-5.md
 | Install | One pure wheel with six runtime dependencies. | Six platform wheels (macOS x86_64 and arm64, manylinux x86_64 and aarch64, musllinux x86_64, Windows x86_64). No runtime dependency. Other platforms need a native build. |
 | Commands | `check`, `init`, `report`, `skill`, `validate` | `validate`, `report`, `init`, `skill` and `studio` (`explore` is an alias). `guide`, `story` and `view` are unknown commands. |
 | Rust main binary | No Rust collector. | A package without a library names its main binary (the bin named like the package, else the bin of `src/main.rs`) with the package module name, `<namespace>.<package>`. A contract that named it `bin_<name>` must rename those modules (AD-1410). |
+| String import | A call such as `importlib.import_module("app.x")` is an edge (and a gap when the name is computed). | A string import with a fixed name is a FAIL in every Python contract (the built-in rule `STRING-IMPORT`, no switch). A computed name, `eval` and `exec` stay UNKNOWN. Declare a checked site in `declarations.string_imports` (contract 3.22.0); the rule then reads PASS under its premise (AD-1440). |
 
 ## Verdict changes
 

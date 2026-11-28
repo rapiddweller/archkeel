@@ -379,6 +379,25 @@ source mutations check literal equality, membership, `match` and `Final[str]`
 disguises. See the [migration scope](architecture/typed-control-migration.md) for
 the protected API, legitimate wire/name data and remaining vocabularies.
 
+### String imports (AD-1440)
+
+A call that imports a module by a fixed string (`importlib.import_module("app.x")`, `__import__("app.x")`) is brittle
+code. Every Python contract holds the built-in rule `STRING-IMPORT`: it is not in the file, it has no switch, and it
+reads FAIL for each such call in the scan. A computed name, `eval` and `exec` stay UNKNOWN. The id is reserved.
+
+Declare a call that the team checked in the root contract (3.22.0):
+
+```json
+"string_imports": [{
+  "id": "SI-1", "module": "app.client", "line": 12, "target": "app.service",
+  "rationale": "The optional backend loads on demand.", "provenance": ["docs/design.md"]
+}]
+```
+
+The record names the call by module, line and target (`count` when two calls share a line). The rule then reads
+"PASS under 1 declared string import". A record with another target, line or count applies to nothing: the call stays a
+FAIL and the hygiene row `string_imports.unmatched` names the record.
+
 ### Nested and independent intent
 
 Explicit `inside` mounts evaluate child contracts over the same scan. Paths are

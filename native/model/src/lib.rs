@@ -45,7 +45,9 @@
 #[macro_use]
 mod rule_kinds;
 mod construct_match;
+mod string_imports;
 pub use construct_match::matches as construct_matches;
+pub use string_imports::problems as string_import_problems;
 mod constructs;
 
 #[cfg(test)]

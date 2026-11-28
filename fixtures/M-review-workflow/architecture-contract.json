@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.2.0",
+  "schema_version": "3.22.0",
   "components": [
     {
       "id": "entry",
@@ -203,6 +203,38 @@
     ],
     "public_api_provenance": [
       "docs/target.md"
+    ],
+    "string_imports": [
+      {
+        "id": "STRING-IMPORT-MEMORY",
+        "module": "orders.storage.backends",
+        "line": 17,
+        "target": "orders.storage.backends.memory",
+        "rationale": "The backend loads only when the configuration selects it; the cloud backend needs the optional boto3 extra, so a deployment without it must still start.",
+        "provenance": [
+          "docs/target.md"
+        ]
+      },
+      {
+        "id": "STRING-IMPORT-FILE",
+        "module": "orders.storage.backends",
+        "line": 18,
+        "target": "orders.storage.backends.file",
+        "rationale": "The backend loads only when the configuration selects it; the cloud backend needs the optional boto3 extra, so a deployment without it must still start.",
+        "provenance": [
+          "docs/target.md"
+        ]
+      },
+      {
+        "id": "STRING-IMPORT-CLOUD",
+        "module": "orders.storage.backends",
+        "line": 19,
+        "target": "orders.storage.backends.cloud",
+        "rationale": "The backend loads only when the configuration selects it; the cloud backend needs the optional boto3 extra, so a deployment without it must still start.",
+        "provenance": [
+          "docs/target.md"
+        ]
+      }
     ]
   }
 }

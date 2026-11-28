@@ -62,6 +62,11 @@ GAP_KINDS: Final = {
     "trojan_horse_reach.repeated": "a trojan horse with more than one declared reach",
     "trojan_horse_reach.invalid": "a declared trojan horse reach that cannot apply",
     "trojan_horse_reach.inside": "a declared trojan horse reach in an inside contract",
+    "string_imports.unmatched": (
+        "a declared string import that matches no call with that module, line, target and count"
+    ),
+    "string_imports.inside": "a declared string import in an inside contract",
+    "rule.reserved_id": "a rule with the id of a rule that the core adds to every contract",
     "budget.unknown": "a declared budget that has no baseline value to compare with",
     "budget.exceeded": "a measured budget that is above the baseline",
     "baseline.invalid": "a baseline file that is not valid",

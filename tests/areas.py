@@ -116,6 +116,7 @@ HEAVY_FILES = frozenset(
         "test_cli_native_global_writes.py",
         "test_cli_native_python_imports.py",
         "test_cli_native_python_indirect.py",
+        "test_cli_string_import.py",
         "test_cli_native_python_reexport.py",
         "test_cli_native_rust_resolved_call.py",
         "test_cli_native_rust_resolved_call_closed.py",

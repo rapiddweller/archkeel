@@ -49,7 +49,9 @@ def tree(root: Path, script: str | None) -> Path:
 
 
 def statuses(result: dict[str, Any]) -> dict[str, str]:
-    return {rule: row[1] for rule, row in result["frame"]["rules"].items()}
+    return {
+        rule: row[1] for rule, row in result["frame"]["rules"].items() if rule != "STRING-IMPORT"
+    }
 
 
 def test_without_a_script_each_rule_passes(release_core: Path, tmp_path: Path) -> None:

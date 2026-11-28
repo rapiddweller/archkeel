@@ -112,7 +112,7 @@ fn every_kind_payload_disagreement_is_refused_by_record_validation() {
             pairs += 1;
         }
     }
-    assert_eq!(pairs, 308);
+    assert_eq!(pairs, 332);
     assert!(
         failures.is_empty(),
         "{} disagreement pairs accepted or refused for another reason: {failures:?}",

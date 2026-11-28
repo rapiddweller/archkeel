@@ -130,6 +130,7 @@ pub(crate) enum Feature {
     TrojanHorseName,
     IndirectDependency,
     RustTypeReach,
+    StringImports,
 }
 
 /// The first version that holds the feature (`_FEATURE_START`).
@@ -157,6 +158,7 @@ fn start(feature: Feature) -> ContractVersion {
         Feature::TrojanHorseName => ContractVersion::V3_20,
         Feature::IndirectDependency => ContractVersion::V3_21,
         Feature::RustTypeReach => ContractVersion::V3_22,
+        Feature::StringImports => ContractVersion::V3_22,
     }
 }
 

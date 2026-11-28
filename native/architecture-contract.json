@@ -387,11 +387,13 @@
         "native.archkeel_contract:RootLayout",
         "native.archkeel_contract:Rule",
         "native.archkeel_contract:RuleKind",
+        "native.archkeel_contract:STRING_IMPORT_RULE",
         "native.archkeel_contract:Selector",
         "native.archkeel_contract:SelectorMatch",
         "native.archkeel_contract:SiblingIsolation",
         "native.archkeel_contract:Signature",
         "native.archkeel_contract:SourceRule",
+        "native.archkeel_contract:StringImportSite",
         "native.archkeel_contract:SymbolClassKind",
         "native.archkeel_contract:SymbolPlacement",
         "native.archkeel_contract:Target",
@@ -520,7 +522,9 @@
             "native.archkeel_model.facade_reach",
             "native.archkeel_model.interface",
             "native.archkeel_model.placement",
-            "native.archkeel_model.published"
+            "native.archkeel_model.published",
+            "native.archkeel_model.string_imports",
+            "native.archkeel_model.string_imports:problems"
           ]
         },
         {
@@ -624,6 +628,7 @@
         "native.archkeel_model:rule_premises",
         "native.archkeel_model:shape",
         "native.archkeel_model:stable",
+        "native.archkeel_model:string_import_problems",
         "native.archkeel_model:unused_allowances",
         "native.archkeel_model:unused_public",
         "native.archkeel_model:withheld_cause"
@@ -1082,7 +1087,8 @@
         "native.archkeel_model.facade_reach",
         "native.archkeel_model.interface",
         "native.archkeel_model.placement",
-        "native.archkeel_model.published"
+        "native.archkeel_model.published",
+        "native.archkeel_model.string_imports"
       ],
       "responsibilities": [
         "Match the facts of the model with one rule: the direction kinds, the interface, the constructs, the boundary types and the component cycles (AD-380, AD-408, AD-428, AD-550)."
@@ -1113,6 +1119,7 @@
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:SiblingIsolation",
+            "native.archkeel_contract:StringImportSite",
             "native.archkeel_contract:SymbolClassKind",
             "native.archkeel_contract:SymbolPlacement",
             "native.archkeel_contract:UnusedPublic",
@@ -1206,7 +1213,10 @@
         "native.archkeel_model.published:Unused",
         "native.archkeel_model.published:receipt",
         "native.archkeel_model.published:stated_users",
-        "native.archkeel_model.published:unused"
+        "native.archkeel_model.published:unused",
+        "native.archkeel_model.string_imports:applied",
+        "native.archkeel_model.string_imports:forbids",
+        "native.archkeel_model.string_imports:problems"
       ],
       "decided_by": "architect"
     },
@@ -1329,7 +1339,8 @@
             "native.archkeel_model.direction",
             "native.archkeel_model.interface",
             "native.archkeel_model.placement",
-            "native.archkeel_model.published"
+            "native.archkeel_model.published",
+            "native.archkeel_model.string_imports"
           ]
         }
       ],
@@ -2836,6 +2847,7 @@
             "native.archkeel_model:facade_types",
             "native.archkeel_model:in_scope",
             "native.archkeel_model:publishes",
+            "native.archkeel_model:string_import_problems",
             "native.archkeel_model:unused_allowances",
             "native.archkeel_model:withheld_cause"
           ]
@@ -2851,6 +2863,7 @@
             "native.archkeel_contract:DecidedBy",
             "native.archkeel_contract:ForbiddenDependency",
             "native.archkeel_contract:Rule",
+            "native.archkeel_contract:STRING_IMPORT_RULE",
             "native.archkeel_contract:SelectorMatch",
             "native.archkeel_contract:TargetKind",
             "native.archkeel_contract:canonical_bytes",
@@ -2901,6 +2914,13 @@
           "rationale": "Name the action that a hygiene defect asks for (#1963).",
           "through": [
             "native.archkeel_model.reason:Hygiene"
+          ]
+        },
+        {
+          "component": "model-match",
+          "rationale": "Read the declared string imports that match no call (AD-1440).",
+          "through": [
+            "native.archkeel_model:string_import_problems"
           ]
         }
       ],
@@ -7330,7 +7350,8 @@
         "native.archkeel_python_collector.survey.external_loader",
         "native.archkeel_python_collector.survey.outside.grammar",
         "native.archkeel_python_collector.survey.outside.sites",
-        "native.archkeel_python_collector.survey.stable.class_inventory"
+        "native.archkeel_python_collector.survey.stable.class_inventory",
+        "native.archkeel_python_collector.survey.constructs.signals"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [

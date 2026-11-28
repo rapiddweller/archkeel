@@ -121,7 +121,7 @@ def test_a_matched_declaration_passes_each_rule_only_as_an_assumption(
     frame = result["frame"]
     # No PASS that the trojan horse could change is a plain PASS: each one names the trojan horse
     # site.
-    assumed = {rule["id"] for rule in RULES} - set(ON_FILES)
+    assumed = {rule["id"] for rule in RULES} - set(ON_FILES) | {"STRING-IMPORT"}
     assert frame["assumed"] == dict.fromkeys(sorted(assumed), [SITE]), frame["assumed"]
     assert frame["trojan_horse_reach"] == [
         {
@@ -136,7 +136,7 @@ def test_a_matched_declaration_passes_each_rule_only_as_an_assumption(
     ]
     assert result["status"] == "PASS" and result["exit_code"] == 0
     text = command(release_core, tmp_path, "--text").stdout
-    assert "all 7 rules pass; 5 pass under 1 declared reach" in text, text
+    assert "all 8 rules pass; 6 pass under 1 declared reach" in text, text
     assert "D-EVAL: app.service.model:2 (eval) loads nothing; changes nothing" in text, text
     assert "Reason: The text is a formula of numbers." in text, text
     # The premise is the claim of the contract, not a proof: the same trojan horse can break it.
