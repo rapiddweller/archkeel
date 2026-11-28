@@ -201,6 +201,9 @@ fn assess(
         .map(|p| p.as_text())
         .collect();
     let module = import.target_module();
+    if import.declared() {
+        return declared_module(&public, module);
+    }
     if !import.symbols_known() && import.symbol().is_none() && surface_stated(model) {
         return whole_namespace(&public, module, import);
     }
@@ -245,6 +248,21 @@ fn assess(
         // AD-604: a later hop of a route that the collector proves only in part may be public.
         None if !import.route_complete() => Err(InterfaceGap::PublicationRoute),
         None => Ok(false),
+    }
+}
+
+/// AD-1500: a module that a declared `loads` list names binds no known name; its owner decides it
+/// on the module. It passes when `public` lists the module, and it is a gap when `public` lists
+/// only names of it. Otherwise no name of it is public: the import fails, as for a loaded module
+/// that is not below the interface.
+fn declared_module(public: &[&str], module: &str) -> Result<bool, InterfaceGap> {
+    let prefix = format!("{module}:");
+    if public.contains(&module) {
+        Ok(true)
+    } else if public.iter().any(|entry| entry.starts_with(&prefix)) {
+        Err(InterfaceGap::UnreadBinding)
+    } else {
+        Ok(false)
     }
 }
 
