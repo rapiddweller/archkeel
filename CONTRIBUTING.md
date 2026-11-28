@@ -167,22 +167,24 @@ gaps, no run is compared with an earlier run, and no label approves anything
 The README badge shows the verdict counts of main.
 
 ```bash
-make self-validate-native
+make self-validate
 ```
 
-This builds the core, runs `archkeel report --config native/archkeel.toml` and prints the counts
-(rules PASS, FAIL and UNKNOWN, gap records, violations). The gate is red only when the result is
-missing, empty, malformed or a refusal, when the core reports a FAIL or a violation, or when the exit
-code is not the one that the statuses give. An UNKNOWN rule and a gap never fail it and never turn into
+This builds the core, runs one system check of `docs/architecture/architecture-system.json` (the shell,
+`native/` and the Studio UI) and prints the counts (rules PASS, FAIL and UNKNOWN, gap records,
+violations). The gate checks each part on its own rules. It is red only when the result is missing,
+empty, malformed or a refusal, or when the core reports a FAIL or a violation in any part. An UNKNOWN rule and a gap never fail it and never turn into
 a PASS. The last line is `self-check gate: GREEN` or `self-check gate: RED (exit 1)`. A FAIL or a
 violation has no approval path: fix it. A new class of gaps gets a decision record. For a new
 field-receiver gap, write the call as a path call (`Type::method(&value)`) or bind a typed local. The
-full result is in ignored `test-artifacts/validation-native/result.json`.
+full result is in ignored `test-artifacts/validation-system/result.json`.
 
-`make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
-`docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478) with the
-same gate. `make self-validate` runs both checks and the system check. The system check includes the
-Studio UI contract at `studio/architecture-contract.json`. The tools have no architecture contract.
+The system check holds the Python shell of `src/archkeel` with the contract
+`docs/architecture/target/shell-contract.json` ([shell](docs/architecture/shell.md), AD-478), and the
+Studio UI contract at `studio/architecture-contract.json`. One run scans each part once
+([AD-1380](docs/architecture/decisions/ad-1380-the-self-check-scans-each-part-once.md)). To scan
+one part alone, run `archkeel report --config <its configuration>`. The tools have no architecture
+contract.
 
 ## A behaviour change carries its decision
 

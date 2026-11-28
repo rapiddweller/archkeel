@@ -106,3 +106,41 @@ def test_a_newline_in_a_message_never_starts_a_log_line(tmp_path: Path) -> None:
     done = gate(save(tmp_path, "r.json", refused))
     red(done)
     assert [line for line in done.stdout.splitlines() if line.startswith("::")] == []
+
+
+def system_frame(tmp_path: Path, **changes: object) -> dict[str, object]:
+    """The bare frame of a system run: two parts, each with its own rules (AD-1380)."""
+    frame = real("base.json")["frame"]
+    frame["rules"]["SHELL-RULE"] = ["forbidden_dependency", "PASS"]
+    frame["system"] = {
+        "parts": [
+            {"id": "core", "status": "UNKNOWN", "rules": [RULE]},
+            {"id": "shell", "status": "PASS", "rules": ["SHELL-RULE"]},
+        ]
+    }
+    frame.update(changes)
+    return frame  # type: ignore[no-any-return]
+
+
+def test_a_system_frame_with_an_unknown_part_is_green_and_needs_no_envelope(tmp_path: Path) -> None:
+    done = gate(save(tmp_path, "s.json", system_frame(tmp_path)))
+    assert done.returncode == 0, done.stdout
+
+
+def test_a_fail_or_a_violation_in_one_part_fails_the_system_and_names_the_part(
+    tmp_path: Path,
+) -> None:
+    frame = system_frame(tmp_path)
+    frame["rules"]["SHELL-RULE"][1] = "FAIL"  # type: ignore[index]
+    frame["details"] = {"SHELL-RULE": [{"source": "a", "target": "b"}]}
+    frame["violations"] = {"SHELL-RULE": 1}
+    red(
+        gate(save(tmp_path, "s.json", frame)), "shell: rule SHELL-RULE is FAIL", "shell: violation:"
+    )
+
+
+def test_a_part_without_rows_in_the_frame_proves_nothing(tmp_path: Path) -> None:
+    frame = system_frame(tmp_path)
+    del frame["rules"]["SHELL-RULE"]  # type: ignore[attr-defined]
+    red(gate(save(tmp_path, "s.json", frame)), "shell: the result has no rules")
+    red(gate(save(tmp_path, "e.json", system_frame(tmp_path, system={"parts": []}))), "no parts")

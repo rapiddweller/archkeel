@@ -59,7 +59,7 @@ jobs:
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
-      - name: Check native/ and the Python shell with the core (AD-1064)
+      - name: Check the system with the core, each part once (AD-1064, AD-1380)
         env:
           NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate
@@ -71,7 +71,7 @@ jobs:
           name: report-check-evidence
           path: |
             test-artifacts/pytest/*.xml
-            test-artifacts/validation-native/result.json
+            test-artifacts/validation-system/result.json
           if-no-files-found: warn
           retention-days: 1
 

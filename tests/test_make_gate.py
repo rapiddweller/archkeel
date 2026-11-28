@@ -61,7 +61,7 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
 
 
 def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
-    output = tmp_path / "test-artifacts/validation-native"
+    output = tmp_path / "test-artifacts/validation-system"
     output.mkdir(parents=True)
     (output / "result.json").write_text("previous result")
     browser = tmp_path / "test-artifacts/validation"

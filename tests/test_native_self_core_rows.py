@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-418, AD-432: a violation planted in a copy of `native/` fails its self-contract rule (#880).
 
-`make self-validate-native` decides the unmodified checkout; these tests plant a module cycle.
+`make self-validate` decides the unmodified checkout; these tests plant a module cycle.
 """
 
 from __future__ import annotations

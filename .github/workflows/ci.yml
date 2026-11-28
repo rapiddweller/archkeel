@@ -95,7 +95,7 @@ jobs:
         run: make ci-pr-static BASE="$BASE"
 
       - id: selfcheck
-        name: Check native/ and the Python shell with the core (AD-1064)
+        name: Check the system with the core, each part once (AD-1064, AD-1380)
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
           NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json

@@ -5,8 +5,8 @@
 
 The tests copy `src/archkeel` and the shell contract into a Git repository, run the default
 `archkeel validate` with the core of this build, and require a usable result without FAIL or
-violation, as `make self-validate-shell` does (AD-1260). No status or gap count is pinned.
-Planted imports show that a rule can fail, and one mounted contract of `native/` shows what a
+violation, as the shell part of `make self-validate` does (AD-1260). No status or gap count is
+pinned. Planted imports show that a rule can fail, and one mounted contract of `native/` shows what a
 mixed tree gives today.
 """
 
@@ -137,9 +137,9 @@ def test_the_summary_lists_a_planted_import_with_its_place(
             _code, result = run(
                 "report", "--root", str(shell_tree), "--config", CONFIG, "--topology"
             )
-        path = tmp_path / "validation-shell/result.json"
+        path = tmp_path / "validation-system/result.json"
         path.parent.mkdir(exist_ok=True)
-        path.write_text(json.dumps(result), encoding="utf-8")
+        path.write_text(json.dumps(result["frame"]), encoding="utf-8")
         text = self_check_summary.summary(tmp_path, shell_tree, 0, "x.log")
         assert len(text) <= self_check_summary.MAX_LINES
         return text

@@ -1,5 +1,5 @@
-# AD-335: Archkeel checks its own native workspace with its own contract. `make self-validate-native`
-# runs `archkeel validate --config native/archkeel.toml` from the repository root.
+# AD-335: Archkeel checks its own native workspace with its own contract. `make self-validate`
+# scans it as the core part of the system document, from the repository root.
 [scan]
 # AD-776: the paths below are relative to the repository root, one folder up.
 root = ".."

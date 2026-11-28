@@ -12,14 +12,14 @@ export CARGO_TERM_PROGRESS_WHEN := never
 export CARGO_TERM_QUIET := true
 endif
 
-.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test ci-artifacts-clean check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check core native-check native-test self-validate self-validate-native self-validate-shell self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel report-gallery
+.PHONY: type-reach-setup gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-gate-report pr-precheck pr-selected-test ci-artifacts-clean check test typescript-compiler-check lint typecheck flutter-demo-check compass-pinned-build plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate studio-ui-generate studio-ui-check browser-architecture-check typescript-libs-check core native-check native-test self-validate self-validate-system self-check native-report rustc-facts-e2e rustc-facts-clippy native-tools cargo-deny-install native-wheel report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
 
 ci: ci-check
 
-ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-shell
+ci-check: ci-artifacts-clean ci-core-check self-validate
 
 ci-pr-check: pr-gate
 
@@ -96,7 +96,7 @@ pr-selected-test: core browser-runtime-install
 	fi
 
 ci-artifacts-clean:
-	rm -rf test-artifacts/validation test-artifacts/validation-native
+	rm -rf test-artifacts/validation test-artifacts/validation-system
 
 TEST_WORKERS ?= 2
 
@@ -171,44 +171,32 @@ core:
 
 # AD-1130: `native/archkeel.toml` asks for compiler type reach, which runs cargo and the build scripts of the
 # scanned workspace. Only the operator allows that, by the environment: this is the one place that does it
-# for the self-check.
-# `self-validate-system` scans the same part; `report-gallery` runs the self run for the report pages.
-self-validate-native self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
+# for the self-check. `report-gallery` runs the self runs for the report pages.
+self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
 
-# AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432). The gate (AD-1260)
-# fails only when the core gave no usable answer or says FAIL or a violation; UNKNOWN never fails it.
-self-validate-native: core
-	@mkdir -p test-artifacts/validation-native
-	@$(UV) run --locked archkeel report --config native/archkeel.toml --json --topology $(if $(NATIVE_SELFCHECK_TIMINGS),--timings "$(NATIVE_SELFCHECK_TIMINGS)") > test-artifacts/validation-native/result.json || true
-	@$(UV) run --locked python tools/self_check_gate.py test-artifacts/validation-native/result.json
-	@echo "Native architecture rules: full result: test-artifacts/validation-native/result.json"
-
-# AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract, with the same gate.
-self-validate-shell: core
-	@mkdir -p test-artifacts/validation-shell
-	@$(UV) run --locked archkeel report --config docs/architecture/shell.toml --json --topology > test-artifacts/validation-shell/result.json || true
-	@$(UV) run --locked python tools/self_check_gate.py test-artifacts/validation-shell/result.json
-	@echo "Shell architecture rules: full result: test-artifacts/validation-shell/result.json"
-
-# AD-616: ArchKeel as one system: one core run checks each part of the system document and gives one
-# status by the status rule of the core, then one line for each part. The gate of each part
-# is above, so a FAIL or UNKNOWN (exit 1 or 2) does not stop make; a refusal does.
+# AD-616, AD-1380: ArchKeel as one system. One core run checks each part of the system document (the
+# shell, the core and the studio) and gives one status by the status rule of the core, then one line for
+# each part. The gate (AD-1260) then checks each part on its own rules: it fails when the core gave no
+# usable answer, or says FAIL or a violation for any part; UNKNOWN never fails it. A FAIL or UNKNOWN exit
+# (1 or 2) of the run does not stop make; a refusal leaves no result, and the gate fails on that.
 SYSTEM_DOCUMENT := docs/architecture/architecture-system.json
 # AD-1088: the JSON of the same run, for `make self-check`.
 SYSTEM_RESULT := test-artifacts/validation-system/result.json
 self-validate-system: core
 	@mkdir -p $(dir $(SYSTEM_RESULT))
-	@$(UV) run --locked archkeel report --text --config $(SYSTEM_DOCUMENT) --output $(SYSTEM_RESULT) --format json; test $$? -le 2
+	@rm -f $(SYSTEM_RESULT)
+	@$(UV) run --locked archkeel report --text --topology --config $(SYSTEM_DOCUMENT) --output $(SYSTEM_RESULT) --format json $(if $(NATIVE_SELFCHECK_TIMINGS),--timings "$(NATIVE_SELFCHECK_TIMINGS)"); test $$? -le 2
+	@$(UV) run --locked python tools/self_check_gate.py $(SYSTEM_RESULT)
+	@echo "Architecture rules of the system: full result: $(SYSTEM_RESULT)"
 
-# AD-478: the shell and native/ with their own contracts, then the system line.
-self-validate: self-validate-native self-validate-shell self-validate-system
+self-validate: self-validate-system
 
 # AD-1088: the first and the last command of an agent that changes ArchKeel. It runs make self-validate (the
 # gates decide the exit code), then prints at most 40 lines from the results of that run: the verdicts, the
 # violations, the UNKNOWN causes, and the measured size, import and cycle facts. No checker runs twice.
 self-check: core
 	@mkdir -p test-artifacts/selfcheck
-	@rm -f test-artifacts/validation-native/result.json test-artifacts/validation-shell/result.json test-artifacts/validation-system/result.json
+	@rm -f $(SYSTEM_RESULT)
 	@status=0; $(MAKE) -k --no-print-directory self-validate > test-artifacts/selfcheck/self-validate.log 2>&1 || status=$$?; \
 	$(UV) run --locked python tools/self_check_summary.py --status $$status --log test-artifacts/selfcheck/self-validate.log; \
 	exit $$status
