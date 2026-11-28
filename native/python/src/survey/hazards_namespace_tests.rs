@@ -81,6 +81,12 @@ fn a_mapping_of_unknown_origin_is_unknown_and_a_spread_hides_the_arguments() {
         "def f(text, ns):\n    return eval(text, ns)\n",
         "def f(text, args):\n    return eval(*args)\n",
         "def f(text, kw):\n    return eval(text, **kw)\n",
+        // A spread before the mapping moves every position (the globals can be shared).
+        "def f(args):\n    exec(*args, {})\n",
+        // `dict` is a parameter, a method or an import: not proved to build a new mapping.
+        "def f(text, dict):\n    exec(text, dict())\n",
+        "def f(text, box):\n    exec(text, box.dict())\n",
+        "from app.other import dict\n\ndef f(text):\n    exec(text, dict())\n",
     ] {
         assert_eq!(one(source), Some(SiteNamespace::Unknown), "{source}");
     }
