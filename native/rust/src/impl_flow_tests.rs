@@ -15,6 +15,7 @@ fn proofs(causes: &[bool], erased: bool) -> (Option<ResolutionDimension>, bool) 
             ("src.rs", &Site::default()),
             &format!("candidate {execution}"),
             (erased && execution, execution, execution),
+            None,
         );
     }
     let root = archkeel_snapshot::test_tree::Tree::new(&[]);

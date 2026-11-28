@@ -204,6 +204,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
         path,
         scope,
         members,
+        site: walker.site(item.impl_token.span),
         exact: exact_path(item).is_some() && walker.blocks() == 0 && !walker.selves.gated(),
     });
 }

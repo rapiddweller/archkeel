@@ -9,7 +9,7 @@
 //! names `S`, and that code has an edge into `c` (or is `c`). Each gap that this adds is a new step
 //! of the graph, so the check runs until no candidate changes.
 
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 
 use archkeel_facts::vocab::ResolutionDimension;
 
@@ -18,6 +18,7 @@ use crate::crates::Workspace;
 use crate::definitions::MethodCall;
 pub(super) use crate::impl_globs::Foreign;
 use crate::impl_globs::{build_ancestors, build_ingress, names_type, once_gap, visible, BitSet};
+pub(super) use crate::impl_pending::{Pending, PendingPool};
 use crate::modules::Index;
 use crate::site::Site;
 use crate::tree::Module;
@@ -37,87 +38,6 @@ pub(super) struct LazyHomes {
     pub(super) trait_homes: Vec<LazyHome>,
     pub(super) drop_homes: Vec<LazyHome>,
     pub(super) crate_deps: Vec<Vec<bool>>,
-}
-
-/// Compact pending candidate waiting for value-flow settlement (#1942).
-pub(super) struct Pending {
-    source: u32,
-    site: u32,
-    target: u32,
-    reason: u32,
-    erased: bool,
-    execution: bool,
-    no_name_route: bool,
-}
-
-/// Interned candidate pool sharing `Builder`'s string table (#1942).
-pub(super) struct PendingPool {
-    sites: Vec<(u32, Site)>,
-    site_index: HashMap<(u32, i64, i64, i64), u32>,
-    items: Vec<Pending>,
-}
-
-impl PendingPool {
-    pub(super) fn new() -> Self {
-        Self {
-            sites: Vec::new(),
-            site_index: HashMap::new(),
-            items: Vec::new(),
-        }
-    }
-
-    fn intern_site(&mut self, builder: &mut Builder, rel: &str, site: &Site) -> u32 {
-        let rel_id = builder.intern_text(rel);
-        let key = (rel_id, site.line, site.end_line, site.column);
-        if let Some(&id) = self.site_index.get(&key) {
-            return id;
-        }
-        let id = u32::try_from(Vec::len(&self.sites)).unwrap_or(u32::MAX);
-        self.sites.push((rel_id, site.clone()));
-        self.site_index.insert(key, id);
-        id
-    }
-
-    pub(super) fn push(
-        &mut self,
-        builder: &mut Builder,
-        (source, target): (&str, &str),
-        (rel, site): (&str, &Site),
-        reason: &str,
-        (erased, execution, no_name_route): (bool, bool, bool),
-    ) {
-        let site = self.intern_site(builder, rel, site);
-        self.items.push(Pending {
-            source: builder.intern_text(source),
-            site,
-            target: builder.intern_text(target),
-            reason: builder.intern_text(reason),
-            erased,
-            execution,
-            no_name_route,
-        });
-    }
-
-    /// A candidate of a written call that the compiler resolved to another module: it never reaches the target.
-    /// It leaves before the named pairs are read, so a pair that only such calls named is not named (AD-1185).
-    fn elsewhere(
-        &self,
-        (builder, index): (&Builder, &Index<'_>),
-        reach: Option<&Filter<'_>>,
-        pending: &Pending,
-    ) -> bool {
-        let Some((rel, site)) = self.site_of(pending.site) else {
-            return false;
-        };
-        let target = index.rel(builder.interned_text(pending.target));
-        let at = (builder.interned_text(rel), site.line, site.column);
-        !pending.execution && target.is_some_and(|file| Filter::resolved_elsewhere(reach, file, at))
-    }
-
-    fn site_of(&self, id: u32) -> Option<(u32, &Site)> {
-        let (rel, site) = self.sites.get(usize::try_from(id).ok()?)?;
-        Some((*rel, site))
-    }
 }
 
 struct CallerEntry {
@@ -159,7 +79,20 @@ pub(super) fn settle(
     }
     builder.reach_used = filter.as_ref().is_some_and(|f| f.matched() > 0);
     let mut open = std::mem::take(&mut pool.items);
-    open.retain(|p| !pool.elsewhere((builder, index), filter.as_ref(), p));
+    // A settled named doubt leaves the named pairs. An argument that can run code of the target keeps its
+    // execution doubt as a candidate of its own (AD-1510).
+    open.retain_mut(
+        |p| match pool.elsewhere((builder, index), filter.as_ref(), p) {
+            None => true,
+            Some(false) => false,
+            Some(true) => {
+                if let Some(home) = p.home {
+                    (p.site, p.execution) = (home, true);
+                }
+                true
+            }
+        },
+    );
     let mut ctx = FlowContext {
         edges: import_edges(builder),
         ancestors: build_ancestors(builder),
@@ -372,6 +305,7 @@ pub(super) fn push_own_candidates(
             (&module.rel, &call.site),
             &reason,
             (false, false, no_name_route),
+            Some((&block.module.rel, block.site)),
         );
     }
 }

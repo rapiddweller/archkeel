@@ -292,6 +292,7 @@ fn run_optimized(scenario: &Scenario) -> (Vec<Record<GapFact>>, Vec<Record<GapFa
             (&p.rel, &p.site),
             &p.reason,
             (p.erased, p.execution, p.no_name_route),
+            None,
         );
     }
     let to_lazy = |list: &[RefHome], b: &mut Builder| -> Vec<LazyHome> {

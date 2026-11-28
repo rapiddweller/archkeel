@@ -81,6 +81,8 @@ pub(crate) struct ImplBlock {
     pub scope: Vec<String>,
     /// Each `fn` and `const` of the block, with its visibility as written.
     pub members: Vec<Member>,
+    /// The `impl` keyword: the evidence in this file of a doubt that code of the block can run (AD-1510).
+    pub site: Site,
     /// The block has no type or const parameter, its type has no type or const argument, and no
     /// attribute that can change it: its members are the members of the one type that it names.
     pub exact: bool,
