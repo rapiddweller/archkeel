@@ -89,9 +89,13 @@ fn model(contract: &Contract) -> Result<Model, Box<dyn std::error::Error>> {
         "../../../tests/golden/typescript/validation.json"
     ))?;
     let facts: Facts = serde_json::from_value(reply["facts"].clone())?;
+    model_of(contract, &facts)
+}
+
+fn model_of(contract: &Contract, facts: &Facts) -> Result<Model, Box<dyn std::error::Error>> {
     let settings = Settings::new("shop".to_owned(), facts.profile.as_str().to_owned(), vec![])
         .with_producer(Producer::Trusted);
-    let graph = Graph::recorded(&facts, settings).map_err(|reason| reason.to_string())?;
+    let graph = Graph::recorded(facts, settings).map_err(|reason| reason.to_string())?;
     Model::of(contract, graph).map_err(|refused| refused.1.to_string().into())
 }
 
@@ -184,5 +188,42 @@ fn each_rule_kind_reads_the_facts_that_its_row_states() -> Result<(), Box<dyn st
     let sqlite = rule("DEP-APP-NO-STORE-SQLITE").ok_or("DEP-APP-NO-STORE-SQLITE")?;
     assert_eq!(reads(&model, sqlite, Some("shop.app.maintenance")), NONE);
     assert_eq!(reads(&model, sqlite, Some(APP)), EDGES);
+    Ok(())
+}
+
+/// AD-1560: an unresolved import that no gap names releases a rule that reads only files, and no
+/// other cause of the scope state does: a rule that selects no module, or an unknown Git head,
+/// still holds it (the review of #2250).
+#[test]
+fn unresolved_imports_release_a_file_rule_and_no_other_cause_does(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let contract = contract()?;
+    let decide =
+        |git_head: &str, id: &str| -> Result<Result<(), String>, Box<dyn std::error::Error>> {
+            let (reply, ..) = crate::edges::tests::unresolved().ok_or("the golden reply")?;
+            let mut value = serde_json::to_value(&reply.facts)?;
+            value["runtime"] = json!({"name": "rust", "version": "1.97.0", "required": ">=1.97",
+                "requirement_state": "declared"});
+            value["source"]["git_head"] = json!(git_head);
+            let facts: Facts = serde_json::from_value(value)?;
+            let model = model_of(&contract, &facts)?;
+            let rule = contract
+                .rules()
+                .iter()
+                .find(|rule| head_of(rule).id().as_text() == id)
+                .ok_or(id)?;
+            Ok(crate::scope_order::rule(&model, rule).map_err(|reason| reason.to_string()))
+        };
+    // The golden contract has a rule that selects no module of the reply: another cause of the
+    // state. A file rule is released from the unresolved import only, so that cause stays.
+    for id in ["ROOT-LAYOUT", "ASSIGNMENT-COMPLETE"] {
+        let other = decide("a", id)?.err().ok_or(id)?;
+        assert!(other.contains("selects no module"), "{id}: {other}");
+        let git = decide("unknown", id)?.err().ok_or(id)?;
+        assert!(!git.contains("not resolved") && git != other, "{id}: {git}");
+    }
+    // The rules that read an edge keep the unresolved import as their cause.
+    let held = decide("a", "REQUIRES")?;
+    assert!(held.is_err_and(|text| text.contains("not resolved")));
     Ok(())
 }

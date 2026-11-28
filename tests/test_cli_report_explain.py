@@ -87,7 +87,7 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
     assert sorted(holds["rules"]) == unknown and (len(gapped), len(uml)) == (5, 1)
     other = holds["rules"][uml[0]]
     assert (other["kind"], other["total"], other["gaps"]) == ("other", 0, [])
-    # AD-1510: the 82 gaps are resolution gaps. Each leaves the code of every module unknown, and no
+    # AD-1560: the 82 gaps are resolution gaps. Each leaves the code of every module unknown, and no
     # gap names the unresolved imports by their evidence, so the imports are the first cause.
     total = holds["gaps_total"]
     assert total > 20 and holds["gaps_holding"] == 0 and holds["gaps"] == []

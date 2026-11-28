@@ -98,7 +98,7 @@ HELD: dict[str, tuple[dict[str, str], str]] = {
     ),
 }
 
-# The held preloads whose gap is a resolution gap without an effect (AD-1510).
+# The held preloads whose gap is a resolution gap without an effect (AD-1560).
 EDGES_ONLY = {"project-source-reach", "unknown-loader"}
 
 # A preload that writes no global and patches no loader keeps the proof.
@@ -167,7 +167,7 @@ def test_a_loader_patch_or_an_unknown_preload_holds_every_rule(
     files, reason = HELD[name]
     frame = _validate(tmp_path, release_core, files)["frame"]
     assert frame["rules"]["REQUIRES"][1] in {"FAIL", "UNKNOWN"}, (name, frame["rules"])
-    # AD-1510: an incomplete closure is a resolution gap. It leaves the edges and the code unknown,
+    # AD-1560: an incomplete closure is a resolution gap. It leaves the edges and the code unknown,
     # not the files and their owners, so the rule on the files decides. A patch of the loader, a
     # missing preload and a malformed configuration keep the hold of that rule too.
     expected = {"PASS"} if name in EDGES_ONLY else {"FAIL", "UNKNOWN"}

@@ -87,10 +87,12 @@ impl ModelTree {
                 })
                 .collect();
             let state = proof::state(root, &graph, Some(&facts));
-            match (state, missing) {
-                (State::Complete, Some(parent)) => State::Unread(Part::MountParent(parent)),
+            let layout = proof::layout_state(root, &graph, Some(&facts), &state);
+            let unread = |state: State| match (state, &missing) {
+                (State::Complete, Some(parent)) => State::Unread(Part::MountParent(parent.clone())),
                 (state, _) => state,
-            }
+            };
+            (unread(state), unread(layout))
         };
         let graph = Arc::new(graph);
         let mounts = clips

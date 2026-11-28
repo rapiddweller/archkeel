@@ -1,4 +1,4 @@
-# AD-1510 A resolution gap holds the rules that read edges and code, not the rules that read files
+# AD-1560 A resolution gap holds the rules that read edges and code, not the rules that read files
 
 **Status.** Accepted. Part of #1919 (plan row `STUDIO-ASSIGNMENT-COMPLETE`). It extends [AD-564](ad-564-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) and [AD-634](ad-634-each-collector-states-the-effect-of-its-gaps.md).
 
@@ -7,7 +7,7 @@
 **Decision.**
 1. A gap of kind `source_resolution_gap` that states no effect and is no pair gap has the effect `every_module`: the edges and the code of each module are unknown, and `L` (the file, the name and the place in the layout) is known. The kind decides this, never a reason text. `gap_class::effect_of` is the one place.
 2. So such a gap holds each rule that reads an edge or code, as before. It no longer holds a rule that reads only `L`: `root_layout` and `complete_assignment`.
-3. An unresolved import that no gap names (`Incomplete::UnknownImports`) is the same class: an unknown edge. It holds no rule that reads only `L` either (`gap_effects::reads_layout_only`, derived from the read set, not a list of kinds).
+3. An unresolved import that no gap names (`Incomplete::UnknownImports`) is the same class: an unknown edge. It holds no rule that reads only `L` either (`gap_effects::reads_layout_only`, derived from the read set, not a list of kinds). Such a rule reads the scope state without that one cause (`proof::layout_state`); each other cause of the state (an unknown Git head, the runtime, the producer, a rule that selects no module, a split owner) still holds it (review of #2250).
 4. An unresolved import that such a gap cites is now named by that gap, because the effect `every_module` leaves the code of the source unknown (AD-634 item 2).
 5. Unchanged: a `collection_gap` (a file that is unread, unparsed or not in the reply, a syntax error), a gap of another kind, a pair gap and a gap with a stated effect. A file that no component owns still fails `complete_assignment`. A gap with a `layout` effect still holds it.
 

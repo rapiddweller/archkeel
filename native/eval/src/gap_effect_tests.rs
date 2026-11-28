@@ -144,7 +144,7 @@ fn the_code_of_every_module_holds_each_rule_but_the_rules_of_the_files() {
 
 #[test]
 fn a_resolution_gap_without_an_effect_is_the_code_of_every_module() {
-    // AD-1510: the kind decides. The gap leaves each edge and the code unknown, and the files and
+    // AD-1560: the kind decides. The gap leaves each edge and the code unknown, and the files and
     // their owners known.
     let found = run(unchanged, gap(INDEX, json!({})), rooted()).unwrap_or_else(failed);
     let held = [
