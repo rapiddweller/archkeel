@@ -19,7 +19,7 @@ workflows gives the scan the same inputs as main, so it gives the same result.
    every path that a contract cites, also an absent path.
    A pull request changes tracked files only, so an ignored file is no input of it. The key refuses when an
    ignored path is not build output (`OUTPUT_DIRS`), and for a repository with a submodule. The caller then scans.
-   The key also holds the output of `rustc -Vv` and `cargo -V` of `native/` and `tools/rustc-facts/`: the
+   The key also holds the output of `rustc -Vv` and `cargo -V` of `native/` (`tools/rustc-facts/` pins the same channel, and asking there would make rustup fetch its components): the
    type-reach facts come from a build, and a patch of the same channel can change them. A tool that does not run
    gives no key.
 3. Main saves the result after the gate is green. The tool refuses a result that does not show its
