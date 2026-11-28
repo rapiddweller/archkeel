@@ -119,8 +119,8 @@ still gives each area its files and matches the Full job matrix. A change to a `
 (`UV`, `TEST_WORKERS`) does not start Full: the nightly run covers it. Full on `main` checks it
 after the merge. Name a new test file so that an area pattern matches it.
 
-Each push to `main` that changes a gallery input publishes the report gallery to GitHub Pages
-([AD-462](docs/architecture/decisions/ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
+The nightly run (03:47 UTC) and a manual dispatch publish the report gallery to GitHub Pages; a push to
+`main` does not ([AD-1420](docs/architecture/decisions/ad-1420-pages-runs-at-night-only.md), [AD-462](docs/architecture/decisions/ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
 The job `publish-gallery` of the workflow `pages.yml` (AD-740; it ran in CI before, and a newer push cancelled it) runs `make report-gallery` and deploys `test-artifacts/gallery`. It is
 not in the needs of `All checks passed`, so a Pages error never fails CI. The Pages source of the
 repository must be set to GitHub Actions. The gallery has two sections: ArchKeel as one system
