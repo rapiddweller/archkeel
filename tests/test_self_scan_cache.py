@@ -267,3 +267,14 @@ def test_a_followed_configuration_link_counts_with_its_target(repo: Path) -> Non
     assert reuse(repo, directory).returncode == 0
     (repo / "docs/overrides.toml").write_text("[source.crates-io]\nreplace-with = 'x'\n")
     assert reuse(repo, directory).returncode == 1
+
+
+def test_build_output_that_the_collectors_skip_keeps_the_key(repo: Path) -> None:
+    (repo / ".gitignore").write_text("target/\ntest-artifacts/\n__pycache__/\n")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
+    before = tool(repo, "key").stdout
+    for name in ("native/target/release/core", "test-artifacts/r.json", "src/__pycache__/a.pyc"):
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text("built\n")
+    assert tool(repo, "key").stdout == before

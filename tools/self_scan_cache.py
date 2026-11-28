@@ -87,7 +87,7 @@ def tracked(root: Path) -> list[tuple[str, str]]:
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
     # A collector reads an ignored file too: it counts, and an ignored folder is walked.
     for path in ignored.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
-        if not path:
+        if not path or SKIPPED_DIRS.intersection(path.split("/")):
             continue
         if path.endswith("/"):
             for folder, dirs, names in os.walk(root / path):
