@@ -1,4 +1,4 @@
-# AD-1500 A resolution gap holds the rules that read edges and code, not the rules that read files
+# AD-1510 A resolution gap holds the rules that read edges and code, not the rules that read files
 
 **Status.** Accepted. Part of #1919 (plan row `STUDIO-ASSIGNMENT-COMPLETE`). It extends [AD-564](ad-564-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) and [AD-634](ad-634-each-collector-states-the-effect-of-its-gaps.md).
 

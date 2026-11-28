@@ -271,7 +271,7 @@ impl Site<'_> {
     /// the code of `source` unknown (AD-564): the same site, or a citation of each evidence of
     /// the import. An unresolved import can bind or re-export a name, so an effect on the edges
     /// alone does not cover it. A gap without an effect (a collection gap) names an import only
-    /// by the same site (`named` in `split`); a resolution gap states `every_module` (AD-1500).
+    /// by the same site (`named` in `split`); a resolution gap states `every_module` (AD-1510).
     fn covers(&self, source: &str, cited: &[&str]) -> bool {
         let Some(effect) = &self.effect else {
             return false;
