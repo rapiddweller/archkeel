@@ -23,6 +23,7 @@ For an EE or CE gate, follow [docs/migration-4-to-5.md](docs/migration-4-to-5.md
 | Python API | `archkeel.api`, `archkeel.analyzer`, `archkeel.check`, `archkeel.ir`, `archkeel.host` | Not in the package. Run `archkeel` as a subprocess and read the JSON. |
 | Install | One pure wheel with six runtime dependencies. | Six platform wheels (macOS x86_64 and arm64, manylinux x86_64 and aarch64, musllinux x86_64, Windows x86_64). No runtime dependency. Other platforms need a native build. |
 | Commands | `check`, `init`, `report`, `skill`, `validate` | `validate`, `report`, `init`, `skill` and `studio` (`explore` is an alias). `guide`, `story` and `view` are unknown commands. |
+| Rust main binary | No Rust collector. | A package without a library names its main binary (the bin named like the package, else the bin of `src/main.rs`) with the package module name, `<namespace>.<package>`. A contract that named it `bin_<name>` must rename those modules (AD-1410). |
 
 ## Verdict changes
 
