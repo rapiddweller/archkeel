@@ -95,7 +95,7 @@ def test_the_same_inputs_reuse_the_saved_result_byte_for_byte(repo: Path) -> Non
     assert (repo.parent / "out.json").read_text() == json.dumps(RESULT)
 
 
-@pytest.mark.parametrize("name", ["docs/other.md", "README.md", "fixtures/f.txt"])
+@pytest.mark.parametrize("name", ["docs/other.md", "README.md", "docs/img.png"])
 def test_a_file_that_the_scan_does_not_read_keeps_the_key(repo: Path, name: str) -> None:
     directory = saved(repo)
     (repo / name).parent.mkdir(parents=True, exist_ok=True)
@@ -140,6 +140,11 @@ def test_a_changed_static_input_is_a_miss(repo: Path, name: str) -> None:
         "inner/architecture-contract.json",
         "docs/architecture/inner/architecture-contract.json",
         "tools/probe.py",
+        "package.json",
+        ".npmrc",
+        ".env",
+        "docs/data.yml",
+        "fixtures/f.txt",
         "tools/patch.c",
         "tools/vendor/pyvenv.cfg",
         "tools/vendor/CACHEDIR.TAG",
@@ -193,8 +198,8 @@ def test_a_path_that_a_contract_cites_and_the_core_could_not_read_counts_too(rep
         lambda r: r["topology"]["modules"].append({"path": "lib/outside.py"}),
         lambda r: r["topology"].update(total={"modules": 5}),
         lambda r: r["topology"].update(modules=[]),
-        lambda r: r["system"]["parts"].append({"config": "elsewhere/part.toml"}),
-        lambda r: r["system"].update(document="docs/system.json"),
+        lambda r: r["system"]["parts"].append({"config": "docs/part.md"}),
+        lambda r: r["system"].update(document="docs/system.md"),
         lambda r: r["self_test"]["collect"].update(contract_files={}),
         lambda r: r.update(rules={}),
         lambda r: r.update(refusal={"kind": "core_error"}),
@@ -242,7 +247,7 @@ def test_an_ignored_source_file_that_a_collector_reads_is_a_miss(repo: Path) -> 
     git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
     directory = saved(repo)
     (repo / "ignored").mkdir()
-    (repo / "ignored/note.txt").write_text("not source\n")
+    (repo / "ignored/note.md").write_text("not source\n")
     assert reuse(repo, directory).returncode == 0
     (repo / "src/archkeel/skip.py").write_text("import archkeel.cli\n")
     assert reuse(repo, directory).returncode == 1

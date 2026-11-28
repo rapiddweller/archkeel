@@ -11,21 +11,18 @@ reuses the result of main. The gate then judges the reused result as it judges a
 
 Run: `python tools/self_scan_cache.py key|save|hit ...`.
 
-- `key`: print the prefix of the cache key, `selfscan-v1-<static hash>-`. The static inputs are
-  the directories that the parts scan or build from (`native/`, `src/`, `studio/`, `schema/`,
-  `tools/rustc-facts/`, `.archkeel/`), the files that decide the scan (`archkeel.toml`, every
-  `*contract*.json`, `rust-toolchain*`, `pyproject.toml`, `uv.lock`, `Makefile`, the system
-  document and the shell configuration), every `.cargo` file and every link of the repository
-  (the Rust walk reads them wherever they stand). Each file counts with its content, so a
-  changed byte changes the key. - `save --result R --dir D`: write `D/entry.json` and
-  `D/result.json` for a result that is complete. The entry also lists the documents that the
-  scan read: the files that the core bound (`contract_files`) and every path that a contract
-  cites. The tool refuses (exit 1, nothing written) when the result does not show that its
-  inputs are covered: a scanned file outside the static directories, a topology that does not
-  list every module, a part whose configuration is not a static input, or a tree too large to
-  hash. - `hit --dir D --out R`: reuse `D/result.json` as `R` when the entry is of this static
-  key and every document of the entry has the content that it had. Any other case, and any
-  error, exit 1: the caller scans.
+- `key`: print the prefix of the cache key, `selfscan-v1-<static hash>-`. Every file of the
+  repository counts with its content (also a file not yet added to git and an ignored file that
+  a collector can read), except the formats in `NEUTRAL_SUFFIXES` (`.md` and images). A list of
+  what the collectors read would miss a kind of file, so the rule is the opposite: a changed,
+  new or deleted byte of any other file changes the key.
+- `save --result R --dir D`: write `D/entry.json` and `D/result.json` for a result that is
+  complete. The entry also lists the neutral documents that the scan read: the files that the
+  core bound (`contract_files`) and every path that a contract cites. The tool refuses (exit 1,
+  nothing written) when the result does not show its inputs covered, or the tree is too large.
+- `hit --dir D --out R`: reuse `D/result.json` as `R` when the entry is of this static key and
+  every document of the entry has the content that it had. Any other case, and any error, exit 1:
+  the caller scans.
 
 A hit needs no scan; a miss is the scan of today. The tool never decides a verdict.
 """
@@ -43,52 +40,21 @@ from pathlib import Path
 from typing import Any
 
 VERSION = 1
-# A part of the system or the build of the core can read everything below these directories.
-STATIC_DIRS = ("native/", "src/", "studio/", "schema/", "tools/rustc-facts/", ".archkeel/")
-STATIC_FILES = (
-    "pyproject.toml",
-    "uv.lock",
-    "Makefile",
-    "docs/architecture/architecture-system.json",
-    "docs/architecture/shell.toml",
-)
-# A collector can read a script or source file anywhere (the walk outside the modules), so every
-# such file counts, wherever it stands.
-SOURCE_SUFFIXES = (
-    ".py",
-    ".pyi",
-    ".pyw",
-    ".rs",
-    ".ts",
-    ".tsx",
-    ".js",
-    ".mjs",
-    ".cjs",
-    # The native extensions that the Python survey reads (`outside_native.rs`).
-    ".c",
-    ".h",
-    ".cc",
-    ".cpp",
-    ".cxx",
-    ".c++",
-    ".hh",
-    ".hpp",
-    ".hxx",
-    ".h++",
-    ".m",
-    ".mm",
-    ".pyx",
-    ".pxd",
-    ".pxi",
-    ".so",
-    ".pyd",
-    ".dylib",
-    ".pyc",
-)
-# These markers decide which folders the walk outside the modules skips (`outside.rs`).
-MARKERS = ("pyvenv.cfg", "CACHEDIR.TAG")
-# Build output and tool folders that the collectors skip.
-SKIPPED_DIRS = {"target", "node_modules", ".venv", "__pycache__", ".mypy_cache", ".ruff_cache"}
+# A collector walks the repository and reads many kinds of file: scripts, extensions, preload and
+# package configurations, walk markers. A list of them would miss one, so every file counts except
+# these formats, which no collector reads as a source. A cited document is hashed by the entry.
+NEUTRAL_SUFFIXES = (".md", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf")
+# Build output and tool folders that the collectors skip; CI writes them after the key is made.
+SKIPPED_DIRS = {
+    "target",
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    "test-artifacts",
+}
 # The tree is hashed file by file: a larger tree is not hashed, so the caller scans.
 MAX_FILES = 200_000
 MAX_DEPTH = 100
@@ -119,17 +85,17 @@ def tracked(root: Path) -> list[tuple[str, str]]:
     for path in others.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
         if path:
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
-    # A collector reads an ignored source file too: it counts, and an ignored folder is walked.
+    # A collector reads an ignored file too: it counts, and an ignored folder is walked.
     for path in ignored.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
+        if not path:
+            continue
         if path.endswith("/"):
             for folder, dirs, names in os.walk(root / path):
                 dirs[:] = [name for name in dirs if name not in SKIPPED_DIRS]
                 for name in names:
-                    if name.endswith(SOURCE_SUFFIXES + MARKERS):
+                    if not name.endswith(NEUTRAL_SUFFIXES):
                         rows.setdefault(str((Path(folder) / name).relative_to(root)), "100644")
-        elif path.endswith(SOURCE_SUFFIXES + MARKERS) and not SKIPPED_DIRS.intersection(
-            path.split("/")
-        ):
+        elif not path.endswith(NEUTRAL_SUFFIXES) and not SKIPPED_DIRS.intersection(path.split("/")):
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
     if len(rows) > MAX_FILES:
         raise Uncovered("the tree is larger than the limit")
@@ -139,19 +105,7 @@ def tracked(root: Path) -> list[tuple[str, str]]:
 
 
 def is_static(path: str, mode: str) -> bool:
-    parts = path.split("/")
-    name = parts[-1]
-    return (
-        path.startswith(STATIC_DIRS)
-        or path in STATIC_FILES
-        or mode == "120000"
-        or ".cargo" in parts
-        or name == "archkeel.toml"
-        or (name.endswith(".json") and "contract" in name)
-        or name.startswith("rust-toolchain")
-        or name.endswith(SOURCE_SUFFIXES)
-        or name in MARKERS
-    )
+    return mode == "120000" or not path.endswith(NEUTRAL_SUFFIXES)
 
 
 def content(root: Path, path: str, mode: str) -> str:

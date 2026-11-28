@@ -11,14 +11,13 @@ workflows gives the scan the same inputs as main, so it gives the same result.
 
 1. `tools/self_scan_cache.py` keys a saved result of the system scan by a hash of its inputs. It is a
    result cache. It is not a comparison and it is not a gate.
-2. Static inputs, hashed by content: `native/`, `src/`, `studio/`, `schema/`, `tools/rustc-facts/`,
-   `.archkeel/`, every `archkeel.toml`, every `*contract*.json`, every `rust-toolchain*`, every
-   `.cargo` file, every link with the content of its target, every source file (`.py`, `.pyi`, `.rs`,
-   `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, the native extension formats), every `pyvenv.cfg` and
-   `CACHEDIR.TAG` wherever it stands, also an ignored one that a collector can read,
-   `pyproject.toml`, `uv.lock`, `Makefile`, the system document and the
-   shell configuration. The key also holds the documents that the scan read: the files that the core
-   bound (`contract_files`) and every path that a contract cites, also a path that is absent.
+2. Every file of the repository counts, by content, except the formats of `NEUTRAL_SUFFIXES` (`.md` and
+   images). This includes a file not yet added to git, a link with the content of its target, and an
+   ignored file that a collector can read. Build output folders are skipped as the collectors skip them.
+   A list of what the collectors read failed in review again and again (outside scripts, native
+   extensions, walk markers, preload configurations), so the rule is the opposite. The entry also holds
+   the neutral documents that the scan read: the files that the core bound (`contract_files`) and every
+   path that a contract cites, also an absent path.
 3. Main saves the result after the gate is green. The tool refuses a result that does not show its
    inputs covered: a scanned file outside the static inputs, a part whose configuration is not static,
    a refusal, or a result without rules.
@@ -34,5 +33,6 @@ reused result keeps the `git_head` of main.
 
 ## Not done yet
 
-- A pull request that changes a file that no contract binds but that the core reads in another way
-  would give a stale result. The counter-example tests name the known classes.
+- A pull request that changes a `.md` or an image file that a collector reads without a contract citing
+  it would give a stale result. No collector reads such a file as a source today.
+- A change of a test or a workflow file misses and scans: the hit rate is highest for docs-only changes.

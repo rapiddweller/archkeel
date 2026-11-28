@@ -62,6 +62,7 @@ def repo(tmp_path: Path) -> Path:
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_bytes((ROOT / name).read_bytes())
     for name, text in {
+        ".gitignore": "__pycache__/\ntest-artifacts/\n",
         "native/lib.rs": "// one\n",
         "native/archkeel.toml": "[scan]\n",
         "docs/architecture/architecture-system.json": "{}\n",
