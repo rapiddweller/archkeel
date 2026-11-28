@@ -142,16 +142,22 @@ ALIAS = {
 }
 
 
-def test_a_held_route_through_a_renamed_re_export_names_the_origin_without_a_removal_hint(
+def test_a_held_route_through_a_renamed_re_export_holds_the_origin_and_the_alias_alike(
     release_core: Path, tmp_path: Path
 ) -> None:
-    root = tree(tmp_path, facade_in_service=True, script=HOLD, public=["app.service:run"], **ALIAS)
+    """Acceptance of #2203: origin and alias both UNKNOWN, the hold named, no removal advice."""
+    entries = ["app.service:run", "app.facade:public_run"]
+    root = tree(tmp_path, facade_in_service=True, script=HOLD, public=entries, **ALIAS)
     result = verdict(release_core, root)
     assert result["frame"]["rules"]["INTERFACE"][1] == "UNKNOWN"
-    text = holds(result)["app.service:run"]
-    assert "held, not absent" in text and "does not recommend removing" in text, text
-    assert "Remove the entry" not in text and "delete" not in text, text
-    assert actions(result, "app.service:run") == ["route_held"]
+    found = holds(result)
+    assert sorted(found) == sorted(entries), found
+    for entry in entries:
+        text = found[entry]
+        assert "held, not absent" in text and "does not recommend removing" in text, text
+        assert "outside_write" in text, text
+        assert "Remove the entry" not in text and "delete" not in text, text
+        assert actions(result, entry) == ["route_held"], entry
 
 
 def test_a_proven_route_through_a_renamed_re_export_has_no_hold(
