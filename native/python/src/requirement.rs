@@ -183,6 +183,21 @@ fn pyproject(snapshot: &mut Snapshot) -> Option<Table> {
         .filter(|table| table.values().all(python_values))
 }
 
+/// The `testpaths` of `[tool.pytest.ini_options]`, or `None` when the table is absent (#2240). A
+/// string value is split at white space, as pytest splits an ini value.
+pub(crate) fn pytest_testpaths(snapshot: &mut Snapshot) -> Option<Vec<String>> {
+    let table = pyproject(snapshot)?;
+    let options = table.get("tool")?.get("pytest")?.get("ini_options")?;
+    Some(match options.get("testpaths") {
+        Some(toml::Value::String(text)) => text.split_whitespace().map(str::to_owned).collect(),
+        Some(toml::Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| item.as_str().map(str::to_owned))
+            .collect(),
+        _ => Vec::new(),
+    })
+}
+
 /// The table of `pyproject.toml` that declares a script.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScriptTable {

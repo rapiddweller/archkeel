@@ -8,7 +8,7 @@
 //!
 //! The walk reads the snapshot outside the scan modules. It does not enter `.git`, a symbolic
 //! link, `__pycache__`, `node_modules`, a directory with a `CACHEDIR.TAG` (build output, AD-432) or
-//! a `pyvenv.cfg` (installed packages). A test file (`is_test_source`) is not read: the stated
+//! a `pyvenv.cfg` (installed packages). A test file (`outside_testpaths.rs`: a test name or directory, a `conftest.py`, a path of the pytest `testpaths`) is not read: the stated
 //! premise of the run covers test code, as it covers code outside the repository.
 //!
 //! - A Python file is read with the escape rule of AD-504 (`uses.rs`): a use of a module of the scan
@@ -45,7 +45,6 @@ use super::class_writes::ClassWrites;
 use super::hazards::Site;
 use super::imports;
 use super::lazy_cover::Sources;
-use crate::discover::is_test_source;
 use crate::module::{first_part, EvidenceMap, Module};
 use crate::parse::parse;
 use crate::source::{declared_encoding, decode, newlines};
@@ -56,6 +55,8 @@ mod grammar;
 mod native;
 #[path = "outside_sites.rs"]
 mod sites;
+#[path = "outside_testpaths.rs"]
+mod testpaths;
 
 /// The package of the names of the modules of the repository outside the scan. It is no Python
 /// name, so it can be the name of no module of the scan.
@@ -403,6 +404,7 @@ fn has_cache_tag(snapshot: &mut Snapshot, names: &HashMap<&str, Entry>, director
 
 /// The Python files and the extension files of the snapshot outside the scan modules.
 fn walk(snapshot: &mut Snapshot, selected: &HashSet<&str>) -> Files {
+    let tests = testpaths::testpaths(snapshot);
     let mut files = Files::default();
     let mut pending = vec![String::new()];
     while let Some(directory) = pending.pop() {
@@ -427,7 +429,8 @@ fn walk(snapshot: &mut Snapshot, selected: &HashSet<&str>) -> Files {
             match entry {
                 Entry::Directory if !SKIPPED.contains(&String::as_str(name)) => pending.push(rel),
                 Entry::File
-                    if !selected.contains(String::as_str(&rel)) && !is_test_source(&rel) =>
+                    if !selected.contains(String::as_str(&rel))
+                        && !testpaths::is_outside_test_source(&rel, &tests) =>
                 {
                     files.add(rel);
                 }

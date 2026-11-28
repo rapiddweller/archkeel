@@ -6169,6 +6169,7 @@
         "native.archkeel_python_collector.requirement:ScriptTable",
         "native.archkeel_python_collector.requirement:clamped_from",
         "native.archkeel_python_collector.requirement:lazy_annotations",
+        "native.archkeel_python_collector.requirement:pytest_testpaths",
         "native.archkeel_python_collector.requirement:requirement",
         "native.archkeel_python_collector.requirement:scripts"
       ],
@@ -6280,6 +6281,13 @@
           "rationale": "Read whether the requirement allows Python 3.14, where method annotations are lazy (#1523).",
           "through": [
             "native.archkeel_python_collector.requirement:lazy_annotations"
+          ]
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Read the `testpaths` of the pytest configuration: test source outside the scan roots is no product runtime (AD-1500, #2240).",
+          "through": [
+            "native.archkeel_python_collector.requirement:pytest_testpaths"
           ]
         }
       ],
