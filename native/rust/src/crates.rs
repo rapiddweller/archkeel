@@ -263,11 +263,26 @@ impl Workspace {
         let has_lib = targets
             .iter()
             .any(|(target, _)| target.kind == TargetKind::Lib);
+        // Without a library one binary is the main one: the binary with the name of the package, else
+        // the binary of `src/main.rs`. Two roots must not get one module name.
+        let main_bin = (!has_lib).then(|| {
+            let bin = |(target, _): &&(Target, String)| target.kind == TargetKind::Bin;
+            let named = targets
+                .iter()
+                .filter(bin)
+                .position(|(t, _)| t.name == manifest.package);
+            named.or_else(|| {
+                targets
+                    .iter()
+                    .filter(bin)
+                    .position(|(t, _)| is_default_main(&t.path))
+            })
+        });
+        let mut bins = 0;
         for (target, rel) in targets {
-            let main = target.kind == TargetKind::Lib
-                || (!has_lib
-                    && target.kind == TargetKind::Bin
-                    && (target.name == manifest.package || is_default_main(&target.path)));
+            let bin = target.kind == TargetKind::Bin;
+            let main = target.kind == TargetKind::Lib || (bin && main_bin == Some(Some(bins)));
+            bins += usize::from(bin);
             let name = if main {
                 package.clone()
             } else {

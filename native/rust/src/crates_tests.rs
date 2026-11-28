@@ -95,6 +95,30 @@ fn a_bin_with_another_file_stays_a_secondary_root_of_a_package_with_a_library() 
 }
 
 #[test]
+fn two_binaries_of_a_package_without_a_library_give_one_main_root() {
+    // `app` at `src/bin/app.rs` has the name of the package and wins; `tool` at `src/main.rs` stays secondary.
+    let workspace = found(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"app\"\n[[bin]]\nname = \"tool\"\npath = \"src/main.rs\"\n",
+        ),
+        ("src/main.rs", ""),
+        ("src/bin/app.rs", ""),
+    ]);
+    assert_eq!(workspace.problems, []);
+    let krate = &workspace.crates[0];
+    assert_eq!(
+        roots(krate),
+        [
+            ("ns.app", "src/bin/app.rs"),
+            ("ns.app.bin_tool", "src/main.rs")
+        ]
+    );
+    let modules: std::collections::BTreeSet<_> = krate.roots.iter().map(|r| &r.module).collect();
+    assert_eq!(modules.len(), krate.roots.len());
+}
+
+#[test]
 fn a_test_target_in_its_own_directory_or_named_by_a_path_is_a_secondary_root() {
     let workspace = found(&[
         (

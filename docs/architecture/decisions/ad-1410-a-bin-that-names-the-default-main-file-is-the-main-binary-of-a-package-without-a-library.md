@@ -1,4 +1,4 @@
-# AD-1390: A bin that names the default main file is the main binary of a package without a library
+# AD-1410: A bin that names the default main file is the main binary of a package without a library
 
 Status: accepted. Closes #1952. Amends AD-784 and the module names of the Rust collector.
 
@@ -14,8 +14,9 @@ for one file: the named bin and the default binary of the package.
 ## Decision
 
 1. A `[[bin]]` whose path is `src/main.rs` replaces the default binary target. Cargo does the same.
-2. In a package without a library, a bin with the name of the package, or with the path `src/main.rs`, is the main
-   binary: its module is `<namespace>.<package>`, and it is the primary root that other crates reach.
+2. In a package without a library one binary is the main one: the binary with the name of the package, else the binary
+   of `src/main.rs`. Its module is `<namespace>.<package>`, and it is the primary root that other crates reach. Another
+   binary is `bin_<name>`, so two roots never get one module name (a duplicate file id refuses the project).
 3. A bin with another path stays `bin_<name>`. A package with a library keeps the library as the main target and names
    a bin of `src/main.rs` with another name `bin_<name>`.
 
@@ -25,6 +26,8 @@ The draft needs no change: it names the modules by the folder of the root file, 
 
 - The `fd` shape: a package `my-tool` with `[[bin]] name = "tool"` and `src/main.rs`. Before: 3 `ASSIGNMENT-COMPLETE`
   violations and FAIL. After: no violation, UNKNOWN, exit 2 (open decisions of the draft).
+- A package `app` with `[[bin]] name = "tool" path = "src/main.rs"` and `src/bin/app.rs`: `app` is `ns.app`, `tool` is
+  `ns.app.bin_tool` (unit test).
 - A package with `src/lib.rs` and `[[bin]] name = "tool" path = "src/main.rs"`: the modules stay `my_app` and
   `my_app.bin_tool`.
 - A package with a library, `src/main.rs` and no `[[bin]]`: unchanged (`bin_my_app`).
