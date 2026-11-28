@@ -353,9 +353,7 @@ def _interface(value: object, where: str) -> InterfaceHolds:
         )
         for item in _list(row["classes"], where, 100_000)
     )
-    imports = tuple(
-        _held_import(item, where) for item in _list(row["imports"], where, budget("held_per_rule"))
-    )
+    imports = tuple(_held_import(item, where) for item in _list(row["imports"], where, 100_000))
     places = tuple(
         (
             _word(_HoldClass, as_object(item, where)["class"], where),
@@ -379,7 +377,9 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
     truncated = _bool(row["truncated"], where)
     interface = row.get("interface")
     held = None if interface is None else _interface(interface, where)
-    listed = max(len(gaps), len(pairs), len(held.imports) if held else 0)
+    listed = max(len(gaps), len(pairs))
+    if held and len(held.imports) > total:
+        raise CoreError(f"the core frame field {where} lists more imports than it holds")
     if truncated != (total > limit) or listed > min(total, limit):
         raise CoreError(f"the core frame field {where} has an inconsistent hold count")
     return RuleHolds(

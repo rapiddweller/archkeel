@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import python_interface_plants as plants
 from core_support import ROOT, run
 from frozen_native import frozen_root as frozen_root
 from planted_cycle import cycle_root as cycle_root
@@ -188,3 +189,22 @@ def test_a_pair_gap_holds_only_the_rules_that_it_can_change(
     # A rule that no kept gap can change has no hold of this kind.
     passing = {r for r, row in frame["rules"].items() if row[1] == "PASS"}
     assert passing and not passing & set(holds["rules"])
+
+
+def test_a_held_interface_rule_lists_every_held_import(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """#2244: more than 20 held imports are all in the frame, each with its cause and its place."""
+    names = [f"n{index}" for index in range(25)]
+    library = "".join(f"def {name}(): pass\n" for name in names) + "__all__ = ['n0'] + other\n"
+    consumer = f"from app.lib import {', '.join(names)}\n"
+    plant = plants.Plant("many held imports", consumer, ("app.lib",), {plants.LIB: library})
+    root = plants.build(tmp_path / "many", plant)
+    _, frame = frame_of(release_core, monkeypatch, root, "archkeel.toml")
+    hold = frame["explain"]["holds"]["rules"]["BOUNDARY"]
+    assert hold["kind"] == "interface_imports" and hold["total"] == 25
+    imports = hold["interface"]["imports"]
+    assert {row["name"] for row in imports} == set(names)
+    assert len(imports) == 25 and hold["interface"]["imports_truncated"] is False
+    assert {row["class"] for row in imports} == {"unread_all"}
+    assert hold["interface"]["places"] == [{"class": "unread_all", "at": "app.lib", "count": 25}]
