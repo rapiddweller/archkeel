@@ -40,9 +40,12 @@ pub(crate) fn detected(parsers: &mut Parsers, rel: &str, program: &[u8]) -> Vec<
         let span = place.cloned().unwrap_or_else(first_line);
         Vec::push(&mut found, Found::global(None, span));
     }
+    // AD-1470: `Error.stackTraceLimit = 64` writes a member with a value that is no function. It
+    // patches no call and replaces no global; a path that any other write gives a value stays.
     let named = script
         .write_paths
         .iter()
+        .filter(|path| !script.plain_member_paths.contains(path))
         .chain(top)
         .filter_map(|path| path.first());
     for name in named {

@@ -67,6 +67,7 @@ pub(crate) fn read<'t>(
         writes,
         source_writes: declared.writes,
         write_paths: declared.paths,
+        plain_member_paths: declared.plain_member_paths,
         top_level_write_paths: declared.top_level_paths,
         amplified: declared.amplified,
         host_entry: needs_host(producer),

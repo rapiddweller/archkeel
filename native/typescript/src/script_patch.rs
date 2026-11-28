@@ -37,7 +37,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let mut found = Vec::new();
         for (owner, target) in &self.targets {
             let value = Tree::field(tree, *owner, F::Right).map(|v| Cx::unwrapped(&tree.cx, v));
-            if value.is_some_and(|v| crate::script_types::LITERAL_KINDS.contains(&Node::kind(&v))) {
+            let plain = |v| crate::script_types::no_function(v, &|n| Cx::unwrapped(&tree.cx, n));
+            if value.is_some_and(plain) {
                 continue;
             }
             if let Some((global, path)) = self.patched_member(*target) {
