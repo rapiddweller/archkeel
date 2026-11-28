@@ -750,6 +750,18 @@ SCOPES = {
             x: s
         """
     ),
+    "standard module written through a standard re-export": source(
+        """
+        import contextlib
+        import os
+
+        contextlib.os.EX_OK = PAYLOAD
+
+
+        class K:
+            x: os.EX_OK
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

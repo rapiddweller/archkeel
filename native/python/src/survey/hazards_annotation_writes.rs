@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use ruff_python_ast::Expr;
 
 use super::entity::Project;
-use super::facts::{Binding, ScopeId};
+use super::facts::{Binding, ScopeId, Write};
+use super::stdlib::is_stdlib;
 
 impl<'a> Project<'a> {
     /// True when the scan writes the attribute `name` of the module `module` (standard or of the
@@ -20,13 +21,8 @@ impl<'a> Project<'a> {
         let all = self.written.get_or_init(|| {
             let writes = (0..self.modules.len())
                 .flat_map(|at| self.facts(at).writes.iter().map(move |w| (at, w)));
-            let named = writes.filter_map(|(at, w)| {
-                let attr = w.attr.clone()?;
-                match self.dotted(w.receiver, at, w.scope, 0) {
-                    Some(path) => Some((self.canonical(path, 0), attr)),
-                    None => Some(("*".to_owned(), attr)),
-                }
-            });
+            let named =
+                writes.filter_map(|(at, w)| Some((self.module_written(at, w), w.attr.clone()?)));
             named.collect()
         });
         let key = |m: &str| (m.to_owned(), name.to_owned());
@@ -100,6 +96,22 @@ impl<'a> Project<'a> {
         places
             .map(|(at, i)| (*at, &self.facts(*at).stores[attr][*i]))
             .collect()
+    }
+
+    /// The module that a write goes to: its dotted name, or `*` when the receiver names no one.
+    fn module_written(&self, at: usize, write: &Write<'a>) -> String {
+        let Some(path) = self.dotted(write.receiver, at, write.scope, 0) else {
+            return "*".to_owned();
+        };
+        let path = self.canonical(path, 0);
+        // `contextlib.os` is the module `os` by a re-export that the table has not read: a
+        // standard path of two parts or more names no one module.
+        let open = path.contains('.') && !self.by_name.contains_key(path.as_str());
+        if open && is_stdlib(&path) {
+            "*".to_owned()
+        } else {
+            path
+        }
     }
 
     /// `app.cfg.alias` where `app.cfg` binds `alias` to a module (`import contextlib as alias`):
