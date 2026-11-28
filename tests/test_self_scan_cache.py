@@ -141,6 +141,8 @@ def test_a_changed_static_input_is_a_miss(repo: Path, name: str) -> None:
         "docs/architecture/inner/architecture-contract.json",
         "tools/probe.py",
         "package.json",
+        ".env.local.md",
+        "docs/.env.png",
         ".npmrc",
         ".env",
         "docs/data.yml",
@@ -278,3 +280,16 @@ def test_build_output_that_the_collectors_skip_keeps_the_key(repo: Path) -> None
         (repo / name).parent.mkdir(parents=True, exist_ok=True)
         (repo / name).write_text("built\n")
     assert tool(repo, "key").stdout == before
+
+
+def test_a_cargo_configuration_inside_build_output_counts(repo: Path) -> None:
+    (repo / ".gitignore").write_text("target/\n")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
+    directory = saved(repo)
+    (repo / "target/release").mkdir(parents=True)
+    (repo / "target/release/core").write_text("built\n")
+    assert reuse(repo, directory).returncode == 0
+    (repo / "target/.cargo").mkdir()
+    (repo / "target/.cargo/config.toml").write_text("[source.crates-io]\nreplace-with = 'x'\n")
+    assert reuse(repo, directory).returncode == 1

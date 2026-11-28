@@ -85,18 +85,19 @@ def tracked(root: Path) -> list[tuple[str, str]]:
     for path in others.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
         if path:
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
-    # A collector reads an ignored file too: it counts, and an ignored folder is walked.
+    # A collector reads an ignored file too: it counts, and an ignored folder is walked. A build
+    # output folder counts only through a `.cargo` folder in it: the Rust collector reads that too.
     for path in ignored.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
-        if not path or SKIPPED_DIRS.intersection(path.split("/")):
+        if not path:
             continue
-        if path.endswith("/"):
-            for folder, dirs, names in os.walk(root / path):
-                dirs[:] = [name for name in dirs if name not in SKIPPED_DIRS]
-                for name in names:
-                    if not name.endswith(NEUTRAL_SUFFIXES):
-                        rows.setdefault(str((Path(folder) / name).relative_to(root)), "100644")
-        elif not path.endswith(NEUTRAL_SUFFIXES) and not SKIPPED_DIRS.intersection(path.split("/")):
-            rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
+        for folder, _, names in os.walk(root / path) if path.endswith("/") else [(root, 0, [path])]:
+            for name in names:
+                found = str((Path(folder) / name).relative_to(root))
+                parts = found.split("/")
+                if is_static(found, "100644") and (
+                    ".cargo" in parts or not SKIPPED_DIRS.intersection(parts)
+                ):
+                    rows.setdefault(found, "120000" if (root / found).is_symlink() else "100644")
     if len(rows) > MAX_FILES:
         raise Uncovered("the tree is larger than the limit")
     if any(len(path.split("/")) > MAX_DEPTH for path in rows):
@@ -105,7 +106,9 @@ def tracked(root: Path) -> list[tuple[str, str]]:
 
 
 def is_static(path: str, mode: str) -> bool:
-    return mode == "120000" or not path.endswith(NEUTRAL_SUFFIXES)
+    # `.env.*` is a preload configuration of the TypeScript collector, whatever its last suffix.
+    name = path.rsplit("/", 1)[-1]
+    return mode == "120000" or name.startswith(".env") or not name.endswith(NEUTRAL_SUFFIXES)
 
 
 def content(root: Path, path: str, mode: str) -> str:
