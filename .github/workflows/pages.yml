@@ -1,26 +1,9 @@
 name: Pages
 
-# AD-740, AD-754, AD-1060, AD-1223.
+# AD-740, AD-754, AD-1060, AD-1223, AD-1420.
 
 on:
-  # The gallery reads the scanned trees (native, src, studio, docs, fixtures), the gallery tools,
-  # and the files that build the core and the environment. Tests and other workflows do not feed it.
-  push:
-    branches: [main]
-    paths:
-      - "native/**"
-      - "src/**"
-      - "studio/**"
-      - "schema/**"
-      - "docs/**"
-      - "!docs/architecture/decisions/**"
-      - "fixtures/**"
-      - "tools/**"
-      - ".archkeel/**"
-      - "Makefile"
-      - "pyproject.toml"
-      - "uv.lock"
-      - ".github/workflows/pages.yml"
+  # AD-1420: the gallery is published at night and by hand, not at each push to main.
   schedule:
     - cron: "47 3 * * *"
   workflow_dispatch:

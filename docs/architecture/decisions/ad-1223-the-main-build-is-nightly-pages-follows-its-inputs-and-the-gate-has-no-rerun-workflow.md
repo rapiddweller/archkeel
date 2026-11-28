@@ -12,7 +12,7 @@ minutes of runners. The main build is a rolling preview, and the nightly Full ru
    downloads the wheels of the one nightly build and publishes them (schedule, or dispatch with `publish`). A run that can publish has its own concurrency group and never cancels, so a check run by dispatch cannot stop a
    publication. A tag run of the release skips it. The release caller gives `contents: write` as the cap. `main-build.yml` stays as
    a manual path (dispatch with `publish`) and builds its own wheels.
-3. `pages.yml` starts on a push only when a gallery input changes: `native/`, `src/`, `studio/`, `schema/`,
+3. (Amended by AD-1420: no push trigger; the nightly run and the dispatch stay.) `pages.yml` starts on a push only when a gallery input changes: `native/`, `src/`, `studio/`, `schema/`,
    `docs/` (not `docs/architecture/decisions/`), `fixtures/`, `tools/`, `.archkeel/`, `Makefile`, `pyproject.toml`, `uv.lock` or the workflow. The paths
    come from `tools/report_gallery.py` (the scanned trees and the matrix) and the core build. The nightly run and
    the dispatch stay. `cancel-in-progress` stays false: GitHub advises it for Pages, and a waiting run is already
