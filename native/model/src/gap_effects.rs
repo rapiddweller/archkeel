@@ -88,6 +88,14 @@ pub(crate) fn assumed<'m>(model: &'m Model, rule: &Rule) -> Vec<&'m Applied> {
         .collect()
 }
 
+/// True when `rule` reads only the files and the layout of the modules (`L`): `root_layout` and
+/// `complete_assignment`. An unresolved import that no gap names is an unknown edge. It leaves the
+/// files and their owners known, as a resolution gap does (`gap_class.rs`).
+pub(crate) fn reads_layout_only(model: &Model, rule: &Rule) -> bool {
+    let read = reads(model, rule, None);
+    read.layout && !read.any()
+}
+
 /// Each gap with an effect: with one, the scope of the whole run is not complete.
 pub(crate) fn every(model: &Model) -> Option<Scoped> {
     scoped(model, |_| ReadSet::ALL)

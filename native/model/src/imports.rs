@@ -263,17 +263,17 @@ struct Site<'f> {
     id: &'f str,
     module: Option<&'f str>,
     evidence: Vec<&'f str>,
-    effect: Option<&'f GapEffect>,
+    effect: Option<GapEffect>,
 }
 
 impl Site<'_> {
     /// True when the gap names the unresolved import of `source` at `cited` and its effect leaves
     /// the code of `source` unknown (AD-564): the same site, or a citation of each evidence of
     /// the import. An unresolved import can bind or re-export a name, so an effect on the edges
-    /// alone does not cover it. A gap without an effect names an import only by the same site
-    /// (`named` in `split`).
+    /// alone does not cover it. A gap without an effect (a collection gap) names an import only
+    /// by the same site (`named` in `split`); a resolution gap states `every_module` (AD-1500).
     fn covers(&self, source: &str, cited: &[&str]) -> bool {
-        let Some(effect) = self.effect else {
+        let Some(effect) = &self.effect else {
             return false;
         };
         let names = (self.module == Some(source) && self.evidence == cited)
@@ -382,7 +382,7 @@ fn resolution_sites(facts: &Facts) -> Vec<Site<'_>> {
                 id: gap.id.as_str(),
                 module: data.module.as_ref().map(|m| m.as_str()),
                 evidence: evidence(gap),
-                effect: data.effect.as_ref(),
+                effect: crate::gap_class::effect_of(&gap.data),
             })
         })
         .collect()

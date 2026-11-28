@@ -695,6 +695,7 @@
         "native.archkeel_model.gap_class:Scoped",
         "native.archkeel_model.gap_class:classes",
         "native.archkeel_model.gap_class:effect_gaps",
+        "native.archkeel_model.gap_class:effect_of",
         "native.archkeel_model.ids:ComponentId",
         "native.archkeel_model.ids:Id",
         "native.archkeel_model.ids:ModuleId",

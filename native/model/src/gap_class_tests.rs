@@ -6,8 +6,9 @@
 
 use archkeel_facts::data::{GapData, GapEffect};
 use archkeel_facts::ids::ModuleName;
+use archkeel_facts::GapFact;
 
-use super::{class, Class, Doubt, Scoped};
+use super::{class, effect_of, Class, Doubt, Scoped};
 use crate::causes::Cause;
 use crate::reason::Reason;
 use crate::reason_key::stable;
@@ -64,8 +65,37 @@ fn each_doubt_of_a_gap_goes_to_the_wider_class() {
         ),
     ];
     for (data, expected) in rows {
-        assert_eq!(class(&data, &known), expected, "{data:?}");
+        let collection = GapFact::CollectionGap(data.clone());
+        assert_eq!(class(&collection, &known), expected, "{data:?}");
     }
+}
+
+#[test]
+fn a_resolution_gap_without_an_effect_leaves_the_code_unknown_and_not_the_layout() {
+    let known = |name: &str| name == "shop.a" || name == "shop.b";
+    let resolution = |data: GapData| GapFact::SourceResolutionGap(data);
+    // No effect, no pair: the code of every module, so `L` stays known (a collection gap of the
+    // same shape keeps the whole scope unknown).
+    assert_eq!(class(&resolution(gap(None, None)), &known), Class::Effect);
+    assert_eq!(
+        class(&GapFact::CollectionGap(gap(None, None)), &known),
+        Class::Whole
+    );
+    assert_eq!(
+        effect_of(&resolution(gap(None, None))),
+        Some(GapEffect::EveryModule)
+    );
+    assert_eq!(effect_of(&GapFact::CollectionGap(gap(None, None))), None);
+    // A pair form stays a pair gap (AD-357), and a stated effect stays the stated effect.
+    assert_eq!(
+        class(&resolution(gap(Some("shop.b"), None)), &known),
+        Class::Pair
+    );
+    assert_eq!(effect_of(&resolution(gap(Some("shop.b"), None))), None);
+    let layout = Some(GapEffect::Layout {
+        modules: names(&["shop.a"]),
+    });
+    assert_eq!(effect_of(&resolution(gap(None, layout.clone()))), layout);
 }
 
 fn scoped(ids: &[&str], doubts: Vec<Doubt>) -> Scoped {

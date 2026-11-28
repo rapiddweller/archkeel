@@ -9,14 +9,23 @@
 //! the graph reads the reply. It reads no contract: `gap_effects.rs` gives the rules that a gap
 //! with an effect holds.
 //!
+//! A resolution gap (`source_resolution_gap`) that states no effect is an unresolved or unproven
+//! edge. The collector writes the file, the module and its place in the layout of the scan before
+//! it resolves anything, so such a gap leaves the code of each module unknown and leaves `L` known:
+//! it holds every rule that reads an edge or code, and not a rule that reads only `L`
+//! (`root_layout`, `complete_assignment`). The kind decides this, never a reason text. A collection
+//! gap (a file that is unread, unparsed or not in the reply) and a gap of any other kind keeps the
+//! whole scope unknown.
+//!
 //! Each doubt goes to the wider class, so a statement can only make a verdict less certain: a
 //! gap with an effect that names no module, or a module that the reply does not have, or that
 //! also has the form of a gap between two modules, leaves the whole scope unknown.
 
 use std::fmt;
 
-use archkeel_facts::data::{GapData, GapEffect};
+use archkeel_facts::data::GapEffect;
 use archkeel_facts::envelope::Coverage;
+use archkeel_facts::GapFact;
 
 use crate::coverage::{data_of, droppable};
 
@@ -36,16 +45,17 @@ pub(crate) fn classes(coverage: &Coverage, is_module: impl Fn(&str) -> bool) -> 
     coverage
         .gaps
         .iter()
-        .map(|gap| class(data_of(&gap.data), &is_module))
+        .map(|gap| class(&gap.data, &is_module))
         .collect()
 }
 
-fn class(data: &GapData, is_module: &impl Fn(&str) -> bool) -> Class {
+fn class(gap: &GapFact, is_module: &impl Fn(&str) -> bool) -> Class {
+    let data = data_of(gap);
     let pair = droppable(data);
-    let Some(effect) = &data.effect else {
+    let Some(effect) = effect_of(gap) else {
         return if pair { Class::Pair } else { Class::Whole };
     };
-    let named = match effect {
+    let named = match &effect {
         GapEffect::Edges { sources: names }
         | GapEffect::Modules { modules: names }
         | GapEffect::Symbols { modules: names }
@@ -59,6 +69,16 @@ fn class(data: &GapData, is_module: &impl Fn(&str) -> bool) -> Class {
     } else {
         Class::Whole
     }
+}
+
+/// The effect of a gap: the stated one, or for a resolution gap that is no pair gap and states none,
+/// the code of every module (`L` stays known).
+pub(crate) fn effect_of(gap: &GapFact) -> Option<GapEffect> {
+    let data = data_of(gap);
+    let resolution = matches!(gap, GapFact::SourceResolutionGap(_));
+    data.effect
+        .clone()
+        .or_else(|| (resolution && !droppable(data)).then_some(GapEffect::EveryModule))
 }
 
 /// One gap with an effect: its id and its effect.
@@ -78,7 +98,7 @@ pub(crate) fn effect_gaps(coverage: &Coverage, classes: &[Class]) -> Vec<EffectG
         .filter_map(|(gap, _)| {
             Some(EffectGap {
                 id: gap.id.as_str().to_owned(),
-                effect: data_of(&gap.data).effect.clone()?,
+                effect: effect_of(&gap.data)?,
             })
         })
         .collect()
