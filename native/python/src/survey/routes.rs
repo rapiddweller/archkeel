@@ -152,6 +152,7 @@ pub(crate) fn resolve(
             // which reads the first hop of a guarded import only (the TypeScript type rule).
             guarded.then_some((RouteWithheld::TypeCheckingReexport, None))
         };
+        data.route_withheld_hops = cause.is_some().then(|| chain.clone());
         data.reexport_chain = Some(if cause.is_some() { Vec::new() } else { chain });
         (data.route_withheld, data.route_withheld_at) = match cause {
             Some((cause, at)) => (Some(cause), at),

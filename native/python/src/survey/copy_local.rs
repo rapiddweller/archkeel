@@ -39,8 +39,8 @@ use super::binders::{declared, handler_name, import_bindings, pattern_name};
 /// The names of `copy` whose result is a copy.
 const COPIERS: [&str; 2] = ["copy", "deepcopy"];
 
-/// The words of a hook that can make a copy a module object, or rebind a local.
-const HOOK_WORDS: [&str; 12] = [
+/// The words of a hook that can make a copy a module object.
+const HOOK_WORDS: [&str; 9] = [
     "__copy__",
     "__deepcopy__",
     "__reduce__",
@@ -50,10 +50,11 @@ const HOOK_WORDS: [&str; 12] = [
     "_copy_dispatch",
     "_deepcopy_dispatch",
     "dispatch_table",
-    "f_locals",
-    "settrace",
-    "setprofile",
 ];
+
+/// The words of a frame write: a local or a global can change between two reads (`f_locals`, a trace
+/// or profile function, `f_trace`). Another proof of a name reads this list too (`inert_texts.rs`).
+const FRAME_WORDS: [&str; 4] = ["f_locals", "settrace", "setprofile", "f_trace"];
 
 /// The call that binds a copied local: `head(arg)` or `head.attr(arg)`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -289,22 +290,38 @@ impl<'a> Visitor<'a> for Binds<'a> {
     }
 }
 
-/// True when the module names a hook word (fact 3).
+/// True when the module names a hook word or a frame write (fact 3).
 pub(super) fn names_a_hook(body: &[Stmt]) -> bool {
-    let mut watch = HookWatch(false);
-    watch.visit_body(body);
-    watch.0
+    names_any(body, &[&HOOK_WORDS, &FRAME_WORDS])
 }
 
-struct HookWatch(bool);
+/// True when the module names a frame write: a trace or profile function or a write of a frame.
+pub(super) fn names_a_frame_write(body: &[Stmt]) -> bool {
+    names_any(body, &[&FRAME_WORDS])
+}
 
-impl HookWatch {
+fn names_any(body: &[Stmt], words: &[&[&'static str]]) -> bool {
+    let mut watch = HookWatch {
+        words,
+        found: false,
+    };
+    watch.visit_body(body);
+    watch.found
+}
+
+struct HookWatch<'w> {
+    words: &'w [&'w [&'static str]],
+    found: bool,
+}
+
+impl HookWatch<'_> {
     fn word(&mut self, text: &str) {
-        self.0 |= HOOK_WORDS.iter().any(|word| text.contains(word));
+        let named = self.words.iter().flat_map(|list| list.iter());
+        self.found |= named.into_iter().any(|word| text.contains(word));
     }
 }
 
-impl<'a> Visitor<'a> for HookWatch {
+impl<'a> Visitor<'a> for HookWatch<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         let texts: Vec<&str> = match stmt {
             Stmt::FunctionDef(node) => vec![node.name.as_str()],

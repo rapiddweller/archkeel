@@ -22,16 +22,25 @@ from test_cli_native_python_imports import BASE, RULE, component, project, verdi
 HOLD = 'import importlib.resources\nimportlib.resources.files("app")\n'
 SERVICE = "def run() -> None:\n    pass\n"
 UNUSED = "app.other:unused"
+OTHER = "def unused() -> None:\n    pass\n\n\ndef helper() -> None:\n    pass\n"
 
 
-def tree(root: Path, *, facade_in_service: bool, script: str | None, public: list[str]) -> Path:
+def tree(
+    root: Path,
+    *,
+    facade_in_service: bool,
+    script: str | None,
+    public: list[str],
+    facade: str = "from app.service import run\n",
+    client: str = "from app.facade import run\n\nrun()\n",
+) -> Path:
     """`client` calls `run` through `app.facade`, which re-exports it from `app.service`."""
     files = {
         **BASE,
         "src/app/service.py": SERVICE,
-        "src/app/other.py": "def unused() -> None:\n    pass\n",
-        "src/app/facade/__init__.py": "from app.service import run\n",
-        "src/app/client.py": "from app.facade import run\n\nrun()\n",
+        "src/app/other.py": OTHER,
+        "src/app/facade/__init__.py": facade,
+        "src/app/client.py": client,
         **({"scripts/tool.py": script} if script else {}),
     }
     rules = [{**RULE, "id": "INTERFACE", "kind": "interface_boundary"}]
@@ -124,3 +133,74 @@ def test_a_held_route_to_another_name_does_not_hide_an_unused_entry(
     found = holds(verdict(release_core, root))
     assert "held, not absent" in found["app.service:run"]
     assert "Remove the entry from `public`" in found[UNUSED], found
+
+
+# #2203: the facade gives the entry another name (`run as public_run`).
+ALIAS = {
+    "facade": "from app.service import run as public_run\n",
+    "client": "from app.facade import public_run\n\npublic_run()\n",
+}
+
+
+def test_a_held_route_through_a_renamed_re_export_holds_the_origin_and_the_alias_alike(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """Acceptance of #2203: origin and alias both UNKNOWN, the hold named, no removal advice."""
+    entries = ["app.service:run", "app.facade:public_run"]
+    root = tree(tmp_path, facade_in_service=True, script=HOLD, public=entries, **ALIAS)
+    result = verdict(release_core, root)
+    assert result["frame"]["rules"]["INTERFACE"][1] == "UNKNOWN"
+    found = holds(result)
+    assert sorted(found) == sorted(entries), found
+    for entry in entries:
+        text = found[entry]
+        assert "held, not absent" in text and "does not recommend removing" in text, text
+        assert "outside_write" in text, text
+        assert "Remove the entry" not in text and "delete" not in text, text
+        assert actions(result, entry) == ["route_held"], entry
+
+
+def test_a_proven_route_through_a_renamed_re_export_has_no_hold(
+    release_core: Path, tmp_path: Path
+) -> None:
+    root = tree(
+        tmp_path,
+        facade_in_service=True,
+        script=None,
+        public=["app.service:run", "app.facade:public_run"],
+        **ALIAS,
+    )
+    result = verdict(release_core, root)
+    assert holds(result) == {}, result["frame"]["unsupported"]["rules"]
+    assert result["frame"]["rules"]["INTERFACE"][1] == "PASS", result["frame"]["details"]
+
+
+def test_an_unused_entry_stays_removable_beside_a_held_renamed_route(
+    release_core: Path, tmp_path: Path
+) -> None:
+    root = tree(
+        tmp_path,
+        facade_in_service=True,
+        script=HOLD,
+        public=["app.service:run", UNUSED],
+        **ALIAS,
+    )
+    found = holds(verdict(release_core, root))
+    assert "held, not absent" in found["app.service:run"], found
+    assert "Remove the entry from `public`" in found[UNUSED], found
+
+
+def test_a_held_rename_of_an_unrelated_name_does_not_hide_an_unused_entry(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """The facade renames `helper`; nothing names `run`, so `run` stays removable."""
+    root = tree(
+        tmp_path,
+        facade_in_service=True,
+        script=HOLD,
+        public=["app.service:run"],
+        facade="from app.other import helper as renamed\n",
+        client="from app.facade import renamed\n\nrenamed()\n",
+    )
+    found = holds(verdict(release_core, root))
+    assert "Remove the entry from `public`" in found["app.service:run"], found
