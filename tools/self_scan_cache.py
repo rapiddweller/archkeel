@@ -74,6 +74,7 @@ PRELOAD_PREFIXES = (
     "mocha.config.",
 )
 # The tree is hashed file by file: a larger tree is not hashed, so the caller scans.
+TOOLCHAIN_DIRS = ("native", "tools/rustc-facts")
 MAX_FILES = 200_000
 MAX_DEPTH = 100
 
@@ -158,12 +159,31 @@ def digest(pairs: list[tuple[str, str]]) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="surrogateescape")).hexdigest()
 
 
+def toolchain(root: Path) -> list[tuple[str, str]]:
+    """The versions of the compiler that is installed, not only the channel that a file pins.
+
+    The type-reach facts come from a build: a new patch of the same channel can change them. The
+    two folders have their own pin (`rust-toolchain.toml`), so each asks the tool that it would use.
+    """
+    found: list[tuple[str, str]] = []
+    for folder in TOOLCHAIN_DIRS:
+        for command in (["rustc", "-Vv"], ["cargo", "-V"]):
+            try:
+                done = subprocess.run(
+                    command, capture_output=True, cwd=root / folder, timeout=60, check=True
+                )
+            except (OSError, subprocess.SubprocessError) as error:
+                raise Uncovered(f"cannot run {' '.join(command)} in {folder}: {error}") from error
+            found.append((f"toolchain:{folder}:{' '.join(command)}", done.stdout.decode("utf-8")))
+    return found
+
+
 def static_hash(root: Path) -> str:
     files = tracked(root)
     pairs = [(path, content(root, path, mode)) for mode, path in files if is_static(path, mode)]
     if not pairs:
         raise Uncovered("no static input found")
-    return digest(pairs)
+    return digest(pairs + toolchain(root))
 
 
 def cited(root: Path, contracts: list[str]) -> set[str]:

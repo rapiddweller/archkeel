@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from self_scan_cache_support import fake_toolchain
 from timeout_support import run_bounded
 
 ROOT = Path(__file__).parents[1]
@@ -33,9 +34,10 @@ GOOD: dict[str, Any] = {
 }
 
 
-def environment() -> dict[str, str]:
+def environment(bin_dir: Path | None = None) -> dict[str, str]:
+    base = fake_toolchain(bin_dir) if bin_dir else os.environ
     return {
-        **os.environ,
+        **base,
         "MAKEFLAGS": "",
         "GIT_AUTHOR_NAME": "t",
         "GIT_AUTHOR_EMAIL": "t@example.com",
@@ -64,6 +66,7 @@ def repo(tmp_path: Path) -> Path:
     for name, text in {
         ".gitignore": "__pycache__/\ntest-artifacts/\n",
         "native/lib.rs": "// one\n",
+        "tools/rustc-facts/driver.rs": "fn main() {}\n",
         "native/archkeel.toml": "[scan]\n",
         "docs/architecture/architecture-system.json": "{}\n",
     }.items():
@@ -77,7 +80,7 @@ def repo(tmp_path: Path) -> Path:
 def make(repo: Path, cache: Path | None) -> subprocess.CompletedProcess[str]:
     log = repo.parent / "scans.log"
     log.touch()
-    env = {**environment(), "SCAN_LOG": str(log)}
+    env = {**environment(repo.parent / "bin"), "SCAN_LOG": str(log)}
     if cache is not None:
         env["ARCHKEEL_SELFSCAN_CACHE"] = str(cache)
     return run_bounded(
@@ -100,7 +103,10 @@ def saved(repo: Path, result: dict[str, Any]) -> Path:
     document.write_text(json.dumps(result))
     cache = repo.parent / "cache"
     tool = [sys.executable, "tools/self_scan_cache.py", "save", "--result", str(document)]
-    done = subprocess.run([*tool, "--dir", str(cache)], cwd=repo, capture_output=True, text=True)
+    env = environment(repo.parent / "bin")
+    done = subprocess.run(
+        [*tool, "--dir", str(cache)], cwd=repo, capture_output=True, text=True, env=env
+    )
     assert done.returncode == 0, done.stderr
     return cache
 

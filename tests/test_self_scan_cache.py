@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from self_scan_cache_support import fake_toolchain
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "tools"))
 from self_scan_cache import PRELOAD_PREFIXES  # noqa: E402
@@ -58,8 +59,12 @@ RESULT: dict[str, Any] = {
 
 
 def tool(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    env = fake_toolchain(root.parent / "bin")
     return subprocess.run(
-        [sys.executable, str(TOOL), *args, "--root", str(root)], capture_output=True, text=True
+        [sys.executable, str(TOOL), *args, "--root", str(root)],
+        capture_output=True,
+        text=True,
+        env=env,
     )
 
 
@@ -305,3 +310,22 @@ def test_a_submodule_refuses(repo: Path) -> None:
     git(sub, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "s")
     git(repo, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(sub), "vendor")
     assert tool(repo, "key").returncode == 1
+
+
+def test_the_installed_toolchain_is_part_of_the_key(repo: Path) -> None:
+    directory = saved(repo)
+    before = tool(repo, "key").stdout
+    assert reuse(repo, directory).returncode == 0
+    (repo.parent / "bin/rustc.txt").write_text("rustc 1.97.1 fake\n")
+    assert tool(repo, "key").stdout != before
+    assert reuse(repo, directory).returncode == 1
+    (repo.parent / "bin/rustc.txt").write_text("rustc 1.97.0 fake\n")
+    (repo.parent / "bin/cargo.txt").write_text("cargo 1.97.1 fake\n")
+    assert tool(repo, "key").stdout != before
+
+
+def test_a_tool_that_does_not_run_gives_no_key(repo: Path) -> None:
+    directory = saved(repo)
+    (repo.parent / "bin/fail").write_text("")
+    assert tool(repo, "key").returncode == 1
+    assert reuse(repo, directory).returncode == 1
