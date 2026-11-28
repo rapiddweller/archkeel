@@ -133,8 +133,26 @@ jobs:
         if: steps.build.outcome == 'success'
         run: test "${{ steps.build.outputs.static }}" = 0
 
+      # AD-1450: the self-scan result is a pure function of its inputs. The key names them (`tools/self_scan_cache.py`);
+      # main saves a result under it. A key that cannot be made, or a miss, runs the scan as before.
+      - id: selfscan
+        name: Name the inputs of the self-scan
+        run: |
+          if prefix=$(python3 tools/self_scan_cache.py key); then
+            echo "prefix=$RUNNER_OS-$prefix" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore the self-scan result of main
+        if: steps.selfscan.outputs.prefix != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/selfscan
+          key: ${{ steps.selfscan.outputs.prefix }}pr-${{ github.sha }}
+          restore-keys: ${{ steps.selfscan.outputs.prefix }}
+
       - name: Run the PR gate
         env:
+          ARCHKEEL_SELFSCAN_CACHE: ${{ steps.selfscan.outputs.prefix != '' && format('{0}/selfscan', runner.temp) || '' }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}

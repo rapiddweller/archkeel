@@ -159,7 +159,7 @@ fn a_pair_gap_names_its_origin_from_its_flags() {
 }
 
 #[test]
-fn an_interface_hold_keeps_twenty_imports_for_the_frame_and_shows_five() {
+fn an_interface_hold_keeps_every_import_for_the_frame_and_shows_five() {
     let held = (0..30).map(|n| HeldImport {
         gap: InterfaceGap::PublicationRoute,
         source: "a".to_owned(),
@@ -169,7 +169,7 @@ fn an_interface_hold_keeps_twenty_imports_for_the_frame_and_shows_five() {
         evidence: Vec::new(),
     });
     let hold = InterfaceHold::of(held).expect("an import");
-    assert_eq!((hold.total(), hold.imports().len()), (30, 20));
+    assert_eq!((hold.total(), hold.imports().len()), (30, 30));
     assert!(hold.to_string().contains("(showing 5)"));
     assert!(hold.to_string().ends_with("and 25 more"));
 }

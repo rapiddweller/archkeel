@@ -10,10 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use archkeel_facts::vocab::RouteWithheld;
 use archkeel_model::{InterfaceGap, InterfaceHold, PairOrigin};
 
-use super::limits::MAX_HELD;
-
 /// The most places that one rule lists: the causes that hold the most imports.
-const MAX_PLACES: usize = 10;
+const MAX_PLACES: usize = 10_000;
 
 /// The pairs of the gap records, each once, in the order of their first record, with the origin
 /// of that record when the rule states one.
@@ -50,7 +48,7 @@ pub(super) fn interface_value(hold: &InterfaceHold) -> serde_json::Value {
         let class = cause.map_or("not_stated", RouteWithheld::as_str);
         serde_json::json!({"gap": InterfaceGap::word(gap), "class": class, "count": count})
     });
-    let imports = hold.imports().iter().take(MAX_HELD).map(|held| {
+    let imports = hold.imports().iter().map(|held| {
         serde_json::json!({
             "source": held.source, "target": held.target, "name": held.name,
             "gap": InterfaceGap::word(held.gap), "class": class(held.cause.as_ref()),
@@ -68,6 +66,7 @@ pub(super) fn interface_value(hold: &InterfaceHold) -> serde_json::Value {
     serde_json::json!({
         "classes": classes.collect::<Vec<_>>(),
         "imports": imports.collect::<Vec<_>>(),
+        "imports_truncated": hold.imports().len() < hold.total(),
         "places": places.collect::<Vec<_>>(),
     })
 }
