@@ -54,7 +54,39 @@ STATIC_FILES = (
 )
 # A collector can read a script or source file anywhere (the walk outside the modules), so every
 # such file counts, wherever it stands.
-SOURCE_SUFFIXES = (".py", ".pyi", ".rs", ".ts", ".tsx", ".js", ".mjs", ".cjs")
+SOURCE_SUFFIXES = (
+    ".py",
+    ".pyi",
+    ".pyw",
+    ".rs",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".mjs",
+    ".cjs",
+    # The native extensions that the Python survey reads (`outside_native.rs`).
+    ".c",
+    ".h",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".c++",
+    ".hh",
+    ".hpp",
+    ".hxx",
+    ".h++",
+    ".m",
+    ".mm",
+    ".pyx",
+    ".pxd",
+    ".pxi",
+    ".so",
+    ".pyd",
+    ".dylib",
+    ".pyc",
+)
+# These markers decide which folders the walk outside the modules skips (`outside.rs`).
+MARKERS = ("pyvenv.cfg", "CACHEDIR.TAG")
 # Build output and tool folders that the collectors skip.
 SKIPPED_DIRS = {"target", "node_modules", ".venv", "__pycache__", ".mypy_cache", ".ruff_cache"}
 # The tree is hashed file by file: a larger tree is not hashed, so the caller scans.
@@ -93,9 +125,11 @@ def tracked(root: Path) -> list[tuple[str, str]]:
             for folder, dirs, names in os.walk(root / path):
                 dirs[:] = [name for name in dirs if name not in SKIPPED_DIRS]
                 for name in names:
-                    if name.endswith(SOURCE_SUFFIXES):
+                    if name.endswith(SOURCE_SUFFIXES + MARKERS):
                         rows.setdefault(str((Path(folder) / name).relative_to(root)), "100644")
-        elif path.endswith(SOURCE_SUFFIXES) and not SKIPPED_DIRS.intersection(path.split("/")):
+        elif path.endswith(SOURCE_SUFFIXES + MARKERS) and not SKIPPED_DIRS.intersection(
+            path.split("/")
+        ):
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
     if len(rows) > MAX_FILES:
         raise Uncovered("the tree is larger than the limit")
@@ -116,6 +150,7 @@ def is_static(path: str, mode: str) -> bool:
         or (name.endswith(".json") and "contract" in name)
         or name.startswith("rust-toolchain")
         or name.endswith(SOURCE_SUFFIXES)
+        or name in MARKERS
     )
 
 

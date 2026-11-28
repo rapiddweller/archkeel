@@ -14,7 +14,8 @@ workflows gives the scan the same inputs as main, so it gives the same result.
 2. Static inputs, hashed by content: `native/`, `src/`, `studio/`, `schema/`, `tools/rustc-facts/`,
    `.archkeel/`, every `archkeel.toml`, every `*contract*.json`, every `rust-toolchain*`, every
    `.cargo` file, every link with the content of its target, every source file (`.py`, `.pyi`, `.rs`,
-   `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`) wherever it stands, also an ignored one that a collector can read,
+   `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, the native extension formats), every `pyvenv.cfg` and
+   `CACHEDIR.TAG` wherever it stands, also an ignored one that a collector can read,
    `pyproject.toml`, `uv.lock`, `Makefile`, the system document and the
    shell configuration. The key also holds the documents that the scan read: the files that the core
    bound (`contract_files`) and every path that a contract cites, also a path that is absent.
