@@ -110,6 +110,11 @@ fn a_bound_display_is_data_only_when_each_use_is_a_guarded_test() {
         "_R = {\"__import__\"}\nlist(_R)\n",
         "_R = {\"__import__\", name}\n",
         "_R = {\"__import__\"}\n\n\ndef f(_R):\n    return _R\n",
+        // A name of a class body or a function, or a dunder: Python reads some of them by itself.
+        "class C:\n    __match_args__ = (\"__globals__\",)\n\n\ndef f(n):\n    return type(n) is str and n in C.__match_args__\n",
+        "class C:\n    _R = (\"__globals__\",)\n\n    def f(self, n):\n        return type(n) is str and n in _R\n",
+        "def g():\n    _R = {\"__import__\"}\n\n    def f(n):\n        return type(n) is str and n in _R\n    return f\n",
+        "__all__ = (\"__globals__\",)\n\n\ndef f(n):\n    return type(n) is str and n in __all__\n",
         "_R = {\"__import__\"}\n\n\ndef f(n):\n    return n in _R\n",
         "from external import *\n_R = {\"__import__\"}\n\n\ndef f(n):\n    return type(n) is str and n in _R\n",
     ] {

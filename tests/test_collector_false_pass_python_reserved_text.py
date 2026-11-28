@@ -63,7 +63,17 @@ CONTROLS = {
         "",
     ),
 }
+MATCH = (
+    "import string\n\n\nclass C:\n    __match_args__ = ('__globals__',)\n"
+    "    n = 'x'\n    checked = type(n) is str and n in __match_args__\n\n"
+    "    def __getattr__(self, name):\n"
+    "        space = string.Formatter().get_field('0.' + name, (lambda: None,), {})[0]\n"
+    "        space[''.join(['__bui', 'ltins__'])][''.join(['__imp', 'ort__'])]('app.lib')\n"
+    "        return 1\n\n\n"
+    "def run():\n    match C():\n        case C(value):\n            return value\n\n\n"
+)
 PLANTS = {
+    "class attribute that a match statement reads by itself": (quiet(MATCH, "run()"), ""),
     "comparison chain that shares the literal": (
         quiet(EQ, "'_' in '__globals__' == Lookup()"),
         "",

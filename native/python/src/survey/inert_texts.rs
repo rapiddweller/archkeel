@@ -77,48 +77,47 @@ struct Candidate {
     elements: Vec<TextRange>,
 }
 
+/// The names that a statement of the module body itself binds to a display of string literals. A name in
+/// a class body or a function is no candidate: Python reads some of them by itself (`__match_args__`,
+/// `__slots__`); a dunder of the module is none either (`__all__` is read by `import *`).
 fn candidates(tree: &ModModule, binders: &Binders) -> Vec<Candidate> {
-    let mut walk = Assigns {
-        found: Vec::new(),
-        binders,
-    };
-    walk.visit_body(&tree.body);
-    walk.found
+    let walk = Assigns { binders };
+    tree.body
+        .iter()
+        .filter_map(|stmt| walk.statement(stmt))
+        .collect()
 }
 
 struct Assigns<'b> {
-    found: Vec<Candidate>,
     binders: &'b Binders,
 }
 
 impl Assigns<'_> {
+    fn statement(&self, stmt: &Stmt) -> Option<Candidate> {
+        let (target, value) = match stmt {
+            Stmt::Assign(node) => match node.targets.as_slice() {
+                [target] => (target, Some(&*node.value)),
+                _ => return None,
+            },
+            Stmt::AnnAssign(node) => (&*node.target, node.value.as_deref()),
+            _ => return None,
+        };
+        self.candidate(target, value)
+    }
+
     /// `name = display of strings`, when the module binds the name once.
     fn candidate(&self, target: &Expr, value: Option<&Expr>) -> Option<Candidate> {
         let (Expr::Name(name), Some(value)) = (target, value) else {
             return None;
         };
         let id = name.id.as_str();
+        let dunder = id.starts_with("__") && id.ends_with("__");
         let elements = strings_of(value, &|builtin| self.binders.builtin_visible(builtin))?;
-        (self.binders.count(id) == Some(1)).then_some(())?;
+        (!dunder && self.binders.count(id) == Some(1)).then_some(())?;
         Some(Candidate {
             name: id.to_owned(),
             elements,
         })
-    }
-}
-
-impl<'a> Visitor<'a> for Assigns<'_> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        let (target, value) = match stmt {
-            Stmt::Assign(node) => match node.targets.as_slice() {
-                [target] => (target, Some(&*node.value)),
-                _ => return visitor::walk_stmt(self, stmt),
-            },
-            Stmt::AnnAssign(node) => (&*node.target, node.value.as_deref()),
-            _ => return visitor::walk_stmt(self, stmt),
-        };
-        self.found.extend(self.candidate(target, value));
-        visitor::walk_stmt(self, stmt);
     }
 }
 
