@@ -10,8 +10,8 @@ use std::collections::HashSet;
 use super::binders::Binders;
 use super::globals_read;
 use super::hazards::{
-    bindings, cleared, comprehension_trojans, proved, sites, table, Site, Split, BUILTINS, DYNAMIC,
-    IMPORT_SYSTEM, LITERAL,
+    bindings, cleared, comprehension_trojans, instances, proved, sites, table, Site, Split,
+    BUILTINS, DYNAMIC, IMPORT_SYSTEM, LITERAL,
 };
 use super::hazards_names::{BUILTIN_TROJAN_HORSES, IMPORT_FUNCTIONS};
 use super::lazy_cover::Lazy;
@@ -35,6 +35,10 @@ pub(super) fn split(
         .map(|(m, b)| (&m.tree, b.unique(), bindings(&m.tree)))
         .collect();
     let reexports = table(items.iter().map(|(_, _, bound)| bound));
+    let classes = instances(
+        modules,
+        &items.iter().map(|(_, _, bound)| bound).collect::<Vec<_>>(),
+    );
     let proved = proved(&items, &[&BUILTIN_TROJAN_HORSES, &IMPORT_FUNCTIONS]);
     let mut reads = globals_read::inert_reads(modules);
     for (found, texts) in reads.iter_mut().zip(inert_texts::ranges(modules, binders)) {
@@ -49,7 +53,8 @@ pub(super) fn split(
         for (range, target) in covered.iter().flat_map(|item| &item.targets) {
             literals.push((index, *range, target.clone()));
         }
-        let named = comprehension_trojans((&module.tree, &module.name), &facts, &reexports);
+        let named =
+            comprehension_trojans((&module.tree, &module.name), &facts, (&reexports, &classes));
         let named = named
             .into_iter()
             .map(|(name, at)| Site::plain(DYNAMIC, name, at));

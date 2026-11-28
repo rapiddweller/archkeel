@@ -55,8 +55,79 @@ PLANTS = {
         UTIL,
         "from app.util import cp as q2\n",
     ),
+    # AD-1540 (#2142): a receiver that can be a module, or that carries one, stays a site.
+    "self attribute that the class assigns from the module": (
+        IMPORT,
+        "class K:\n            def __init__(self):\n                self.cp = util.cp\n"
+        "            def go(self):\n                self.cp.run" + RUN + "\n        K().go()",
+        UTIL,
+        "",
+    ),
+    "read of the name on a self that is a module": (
+        IMPORT,
+        "class K:\n            def go(self):\n                m = self.cp\n"
+        "                m.run" + RUN + "\n        K.go(util)",
+        UTIL,
+        "",
+    ),
+    "getattr of the name on self": (
+        IMPORT,
+        "class K:\n            def __init__(self):\n                self.x = util\n"
+        "            def go(self):\n                getattr(self.x, 'cp').run"
+        + RUN
+        + "\n        K().go()",
+        UTIL,
+        "",
+    ),
+    "vars of an instance": (
+        IMPORT,
+        "class K:\n            def __init__(self):\n                self.cp = util.cp\n"
+        "            def go(self):\n                vars(self)['cp'].run"
+        + RUN
+        + "\n        K().go()",
+        UTIL,
+        "",
+    ),
+    "module passed as a parameter": (
+        IMPORT,
+        "def f(m):\n            x = m.cp\n            x.run" + RUN + "\n        f(util)",
+        UTIL,
+        "",
+    ),
+    "module set onto an instance": (
+        IMPORT + "import types\n\nh = types.SimpleNamespace()\n",
+        "setattr(h, 'cp', util)\n        y = h.cp\n        y.cp.run" + RUN,
+        UTIL,
+        "",
+    ),
+    "local rebound to the module": (
+        IMPORT,
+        "def f():\n            x = 'a'\n            x = util\n            y = x.cp\n"
+        "            y.run" + RUN + "\n        f()",
+        UTIL,
+        "",
+    ),
 }
 CONTROLS = {
+    # AD-1540 (#2142): a receiver that is provably no module is no site.
+    "self attribute of a class that holds no module": (
+        IMPORT + "\n\nclass K:\n    def go(self):\n        return self.cp\n\n\n",
+        "K().go()",
+        UTIL,
+        "",
+    ),
+    "local that holds a string": (
+        IMPORT,
+        "def f():\n            x = 'a'\n            return x.cp\n        f()",
+        UTIL,
+        "",
+    ),
+    "local that holds an instance of a project class": (
+        IMPORT + "\n\nclass K:\n    pass\n\n\n",
+        "def f():\n            k = K()\n            return k.cp\n        f()",
+        UTIL,
+        "",
+    ),
     "setattr of the name": (IMPORT, "setattr(util, 'cp', 1)", UTIL, ""),
     "delattr of the name": (IMPORT, "delattr(util, 'cp')", UTIL, ""),
     "store through vars": (IMPORT, "vars(util)['cp'] = 1", UTIL, ""),
