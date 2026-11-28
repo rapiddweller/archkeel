@@ -70,6 +70,17 @@ jobs:
           restore-keys: |
             rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
 
+      # AD-1350: the self-check builds the workspace of native/ with the compiler driver. Without this
+      # cache that build starts cold in each run: 4.5 to 7.5 minutes of the 15 that the job may take.
+      - name: Restore the compiler facts work of main
+        id: facts
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/archkeel/rustc-facts
+          key: rustc-facts-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**') }}
+          restore-keys: |
+            rustc-facts-main-${{ runner.os }}-
+
       # AD-732: the core is built in its own step and saved only after it succeeded.
       - name: Build the core
         id: build
@@ -103,6 +114,16 @@ jobs:
               echo 'No timing file was produced.'
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The key holds the lock, the toolchain and the driver, not the native sources: the members are
+      # rebuilt after each checkout anyway, so the entry (about 590 MB packed) is saved only when a
+      # dependency changes.
+      - name: Save the compiler facts work
+        if: always() && steps.facts.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/archkeel/rustc-facts
+          key: rustc-facts-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**') }}
 
       - name: Save the Rust build cache
         if: always()
