@@ -20,6 +20,8 @@
 //!
 //! A `setattr` or `delattr` call is a flag of the bound module table (`Bound::attribute_write`).
 
+use std::collections::HashSet;
+
 use crate::module::builtin_roles::{self, Role};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, Stmt};
@@ -80,14 +82,68 @@ const READS: [&str; 5] = ["keys", "items", "values", "get", "copy"];
 
 /// True when a statement of one of the modules can change what a typing factory makes.
 pub(super) fn withheld(modules: &[Module]) -> bool {
-    let mut guard = Guard(false);
-    modules
-        .iter()
-        .for_each(|module| guard.visit_body(&module.tree.body));
-    guard.0
+    let mut guard = Guard::default();
+    for module in modules {
+        guard.sys = SysNames::of(&module.tree.body);
+        guard.visit_body(&module.tree.body);
+    }
+    guard.hit
 }
 
-struct Guard(bool);
+/// The names that a module binds to the `sys` module and to its `modules` table.
+#[derive(Default)]
+struct SysNames {
+    /// `import sys`, `import sys as s`.
+    module: HashSet<String>,
+    /// `from sys import modules`, `from sys import modules as m`.
+    table: HashSet<String>,
+}
+
+impl SysNames {
+    fn of(body: &[Stmt]) -> Self {
+        let mut found = Self::default();
+        let mut walk = ImportWalk(&mut found);
+        walk.visit_body(body);
+        found
+    }
+}
+
+struct ImportWalk<'a>(&'a mut SysNames);
+
+impl<'a> Visitor<'a> for ImportWalk<'_> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        match stmt {
+            Stmt::Import(node) => node
+                .names
+                .iter()
+                .filter(|alias| alias.name.as_str() == "sys")
+                .for_each(|alias| {
+                    let bound = alias.asname.as_ref().map_or("sys", |name| name.as_str());
+                    self.0.module.insert(bound.to_owned());
+                }),
+            Stmt::ImportFrom(node) if node.module.as_deref() == Some("sys") && node.level == 0 => {
+                node.names
+                    .iter()
+                    .filter(|alias| alias.name.as_str() == "modules")
+                    .for_each(|alias| {
+                        let bound = alias
+                            .asname
+                            .as_ref()
+                            .map_or("modules", |name| name.as_str());
+                        self.0.table.insert(bound.to_owned());
+                    });
+            }
+            _ => {}
+        }
+        visitor::walk_stmt(self, stmt);
+    }
+}
+
+#[derive(Default)]
+struct Guard {
+    hit: bool,
+    sys: SysNames,
+}
 
 fn named(name: &str) -> bool {
     TYPING_FORMS.contains(&name)
@@ -111,21 +167,41 @@ fn literal_other_than_typing(expr: &Expr) -> bool {
             && STDLIB_VALUES.iter().all(|(module, _)| *module != text.value.to_str()))
 }
 
-fn modules_table(expr: &Expr) -> bool {
-    match expr {
-        Expr::Attribute(node) => node.attr.as_str() == "modules",
-        Expr::Name(name) => name.id.as_str() == "modules",
-        _ => false,
-    }
-}
-
 impl Guard {
+    /// True when `expr` is the import table: `sys.modules` through a name that the module binds to
+    /// `sys`, a name from `from sys import modules`, or `.modules` of a receiver that is no plain
+    /// name (a call, a subscript: it cannot be told from `sys`). A local dict named `modules` is
+    /// none of these (#2240).
+    fn modules_table(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Attribute(node) if node.attr.as_str() == "modules" => match &*node.value {
+                Expr::Name(name) => self.sys.module.contains(name.id.as_str()),
+                _ => true,
+            },
+            Expr::Name(name) => self.sys.table.contains(name.id.as_str()),
+            _ => false,
+        }
+    }
+
+    /// Visit the receiver of `sys.modules`; the plain name `sys` itself is no bare use of the module.
+    fn sys_base(&mut self, value: &Expr) {
+        let plain = matches!(value, Expr::Name(name) if self.sys.module.contains(name.id.as_str()));
+        if !plain {
+            self.visit_expr(value);
+        }
+    }
+
+    /// A read form of the table or of a mapping reads it and keeps it where it is.
+    fn reads(&self, expr: &Expr) -> bool {
+        mapping_of(expr) || self.modules_table(expr)
+    }
+
     /// Visit an expression that may be a mapping read; a read keeps the guard quiet.
     fn read(&mut self, expr: &Expr) {
-        if mapping_of(expr) {
+        if self.reads(expr) {
             match expr {
                 Expr::Call(call) => self.visit_arguments(&call.arguments),
-                Expr::Attribute(node) => self.visit_expr(&node.value),
+                Expr::Attribute(node) => self.sys_base(&node.value),
                 _ => {}
             }
         } else {
@@ -144,7 +220,7 @@ impl Guard {
             _ => None,
         });
         if !(on_object && literal.is_some_and(|name| !named(name))) {
-            self.0 = true;
+            self.hit = true;
         }
         for arg in call.arguments.args.iter() {
             self.visit_expr(arg);
@@ -154,21 +230,21 @@ impl Guard {
 
     /// A call: the write methods of `sys.modules`, `__setattr__` forms, readers of a mapping.
     fn call<'a>(&mut self, expr: &'a Expr, call: &'a ruff_python_ast::ExprCall) {
-        self.0 |= mapping_of(expr);
+        self.hit |= mapping_of(expr);
         if let Expr::Attribute(node) = &*call.func {
             let method = node.attr.as_str();
             if matches!(method, "__setattr__" | "__delattr__") && self.object_setattr(call, node) {
                 return;
             }
-            if modules_table(&node.value)
+            if self.modules_table(&node.value)
                 && matches!(
                     method,
                     "update" | "setdefault" | "pop" | "popitem" | "clear"
                 )
             {
-                self.0 = true;
+                self.hit = true;
             }
-            if READS.contains(&method) && mapping_of(&node.value) {
+            if READS.contains(&method) && self.reads(&node.value) {
                 self.read(&node.value);
                 self.visit_arguments(&call.arguments);
                 return;
@@ -215,21 +291,38 @@ impl<'a> Visitor<'a> for Guard {
             Expr::Attribute(node) => {
                 let attr = node.attr.as_str();
                 if node.ctx != ExprContext::Load && named(attr) {
-                    self.0 = true;
+                    self.hit = true;
                 }
                 if matches!(attr, "__setattr__" | "__delattr__") {
                     // A call with a name argument is judged in `Expr::Call`; any other use is a write.
-                    self.0 = true;
+                    self.hit = true;
+                }
+                // A read form of the table never reaches here, so this use hands the table on or
+                // replaces it: `m = sys.modules`, `f(sys.modules)`, `sys.modules = d`.
+                if self.modules_table(expr) {
+                    self.hit = true;
+                }
+                if matches!(&*node.value, Expr::Name(name) if self.sys.module.contains(name.id.as_str()))
+                {
+                    return;
                 }
             }
+            // The module `sys` or its table as a bare value can be handed to code that writes it.
+            Expr::Name(name)
+                if name.ctx == ExprContext::Load
+                    && (self.sys.module.contains(name.id.as_str())
+                        || self.sys.table.contains(name.id.as_str())) =>
+            {
+                self.hit = true;
+            }
             Expr::Subscript(node) => {
-                if node.ctx != ExprContext::Load && modules_table(&node.value) {
-                    self.0 |= !literal_other_than_typing(&node.slice);
+                if node.ctx != ExprContext::Load && self.modules_table(&node.value) {
+                    self.hit |= !literal_other_than_typing(&node.slice);
                 }
                 if node.ctx != ExprContext::Load && mapping_of(&node.value) {
-                    self.0 = true;
+                    self.hit = true;
                 }
-                if node.ctx == ExprContext::Load {
+                if node.ctx == ExprContext::Load || self.modules_table(&node.value) {
                     self.read(&node.value);
                 } else {
                     self.visit_expr(&node.value);
@@ -249,7 +342,7 @@ impl<'a> Visitor<'a> for Guard {
         }
         if mapping_of(expr) {
             // A mapping read that is no read form: its result may be written.
-            self.0 = true;
+            self.hit = true;
         }
         visitor::walk_expr(self, expr);
     }
