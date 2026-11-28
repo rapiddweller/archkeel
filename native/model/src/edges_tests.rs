@@ -448,7 +448,10 @@ fn the_evidence_of_an_import_is_sorted_and_the_gap_site_keeps_the_reply_order() 
     let imports = split(&reply.facts, reply.facts.profile.target_marks(), |_| false).imports;
     assert!(imports.iter().all(|i| i.evidence() == ["EVD-a", "EVD-b"]));
     // A gap with the sorted evidence names another site than the import with the reply order.
-    let gap = GapFact::resolution("gone", &module);
+    // A collection gap states no effect, so it names an import only by the same site.
+    let mut data = archkeel_facts::data::GapData::at("gone", &module);
+    data.resolution_dimension = Some(archkeel_facts::vocab::ResolutionDimension::Imports);
+    let gap = GapFact::CollectionGap(data);
     let mut record = Record::unknown(FactId::new("UNKNOWN-G"), "gone", None, &module, gap);
     record.evidence_ids = vec![EvidenceId::new("EVD-a"), EvidenceId::new("EVD-b")];
     reply.facts.coverage.gaps = vec![record.clone()];

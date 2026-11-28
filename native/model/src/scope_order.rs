@@ -11,6 +11,7 @@
 use archkeel_contract::Rule;
 
 use crate::causes::{Cause, Held, Part};
+use crate::coverage::Incomplete;
 use crate::dropped_gaps;
 use crate::model::Model;
 use crate::pair_gaps::reads;
@@ -178,6 +179,20 @@ fn interface_receipt(model: &Model, subject: Subject<'_>) -> Result<(), Reason> 
 
 fn state<'id>(model: &Model, subject: Subject<'_>, carry: &mut Carry<'id>) -> Result<(), Reason> {
     match (subject, model.scope_state()) {
+        // An unresolved import that no gap names leaves an edge unknown, not a file or its owner. A
+        // rule that reads only files reads the state without that cause, and every other cause of
+        // the state stays (AD-1560).
+        (
+            Subject::Rule(rule),
+            State::Incomplete(Reason::Incomplete(Incomplete::UnknownImports(_))),
+        ) if crate::gap_effects::reads_layout_only(model, rule) => match model.layout_state() {
+            State::Incomplete(reason) => Err(reason.clone()),
+            State::Unread(part) => {
+                carry.unread = Some(part.clone());
+                Ok(())
+            }
+            State::Complete => Ok(()),
+        },
         (Subject::Rule(rule), State::Incomplete(reason)) => Err(rescued(model, rule, reason)),
         (Subject::Rule(_), State::Unread(part)) => {
             carry.unread = Some(part.clone());

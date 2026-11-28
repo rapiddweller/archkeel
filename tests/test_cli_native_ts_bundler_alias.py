@@ -58,7 +58,9 @@ def test_alias_runtime_premise(
         },
     )["frame"]
     assert frame["rules"]["REQUIRES"][1] == "FAIL"
-    assert frame["rules"]["ASSIGNMENT"][1] == ("UNKNOWN" if held else "PASS")
+    # The gap leaves the runtime target of an import unknown, not a file or its owner: the rule on
+    # the files has its verdict with or without the gap (AD-1560, a resolution gap reads no layout).
+    assert frame["rules"]["ASSIGNMENT"][1] == "PASS"
     reasons = [gap["reason"] for gap in frame["collection_gaps"]]
     assert (f"Local alias runtime conditions are not proven: {specifier}" in reasons) == held
     active = opt_in and resolution == "bundler"

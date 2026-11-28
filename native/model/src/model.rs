@@ -37,6 +37,7 @@ pub struct Model {
     owners: HashMap<ModuleId, ComponentId>,
     graph: Arc<Graph>,
     scope: State,
+    layout_scope: State,
     pairs: Pairs,
     serial: u64,
     domain: Option<Domain>,
@@ -75,11 +76,12 @@ impl Model {
             Err(reason) => return Err(Box::new((graph, reason))),
         };
         let scope = proof::state(contract, &graph, None);
+        let layout = proof::layout_state(contract, &graph, None, &scope);
         Ok(Model::made(
             contract.clone(),
             components,
             Arc::new(graph),
-            scope,
+            (scope, layout),
             None,
         ))
     }
@@ -89,7 +91,7 @@ impl Model {
         contract: Contract,
         components: Table<ComponentId, Component>,
         graph: Arc<Graph>,
-        scope: State,
+        (scope, layout_scope): (State, State),
         domain: Option<Domain>,
     ) -> Model {
         let modules = graph.modules();
@@ -109,6 +111,7 @@ impl Model {
             owners,
             graph,
             scope,
+            layout_scope,
             pairs,
             serial: SERIALS.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             domain,
@@ -128,6 +131,12 @@ impl Model {
     /// The state of the scope of the model (`Scope::complete` reads it).
     pub(crate) fn scope_state(&self) -> &State {
         &self.scope
+    }
+
+    /// The scope state for a rule that reads only files: `scope_state` without the cause of
+    /// unresolved imports that no gap names (AD-1560).
+    pub(crate) fn layout_state(&self) -> &State {
+        &self.layout_scope
     }
 
     /// The pair gaps of the run, classified by the drop rule (slice S7, AD-384).

@@ -28,6 +28,7 @@
 use archkeel_contract::{Component, Contract, Rule};
 
 use crate::causes::{Cause, Held, Part};
+use crate::coverage::Incomplete;
 use crate::graph::Graph;
 use crate::limits::{self, Limit};
 use crate::observed::Runtime;
@@ -62,6 +63,35 @@ pub(crate) fn state(
     graph: &Graph,
     mounts: Option<&[MountFacts<'_>]>,
 ) -> State {
+    state_with(contract, graph, mounts, false)
+}
+
+/// The scope state that a rule which reads only files reads (AD-1560): the state of the run
+/// without the cause "unresolved imports that no gap names". Each other cause stays, so a
+/// layout rule is released from that one fact only. It equals `scope` when that fact is no cause.
+pub(crate) fn layout_state(
+    contract: &Contract,
+    graph: &Graph,
+    mounts: Option<&[MountFacts<'_>]>,
+    scope: &State,
+) -> State {
+    let unknown_imports = matches!(
+        scope,
+        State::Incomplete(Reason::Incomplete(Incomplete::UnknownImports(_)))
+    );
+    if unknown_imports {
+        state_with(contract, graph, mounts, true)
+    } else {
+        scope.clone()
+    }
+}
+
+fn state_with(
+    contract: &Contract,
+    graph: &Graph,
+    mounts: Option<&[MountFacts<'_>]>,
+    layout: bool,
+) -> State {
     let mut unread: Option<Part> = None;
     let mounting = contract
         .components()
@@ -71,7 +101,10 @@ pub(crate) fn state(
         note(&mut unread, Part::MountedTree);
     }
     if let Some(incomplete) = graph.incomplete() {
-        return State::Incomplete(Reason::Incomplete(incomplete));
+        let edges_only = layout && matches!(incomplete, Incomplete::UnknownImports(_));
+        if !edges_only {
+            return State::Incomplete(Reason::Incomplete(incomplete));
+        }
     }
     let observed = graph.observed();
     // Slice S7 (AD-384): without mounts a pair gap is not a cause of the state; `pair_gaps.rs`

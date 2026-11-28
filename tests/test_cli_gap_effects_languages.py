@@ -12,6 +12,7 @@ holds every rule. Each tree has two components, `a` and `b`; `A-NO-B` forbids `a
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import NamedTuple
 
@@ -29,6 +30,10 @@ TS_CONFIG = {
 WRITES_ANY_GLOBAL = (
     "export const call = (o: any, k: string) => o[k]();\nexport const m = Math.min(1, 2);\n"
 )
+
+
+# An import that no file answers: the collector writes an unresolved import and a resolution gap.
+UNRESOLVED = "import { q } from './missing';\nexport const x = q;\n"
 
 
 class Language(NamedTuple):
@@ -124,6 +129,34 @@ PLANTS = {
         },
         {"ASSIGN": "PASS", "A-NO-B": "FAIL"},
     ),
+    # A resolution gap without an effect (an unresolved import) leaves the edges unknown, not the
+    # files and their owners: `ASSIGN` reads only the files. A gap on a file, and a file that no
+    # component owns, still hold or fail it.
+    "typescript unresolved import gap": (
+        TYPESCRIPT,
+        {"src/a/x.ts": UNRESOLVED},
+        {"ASSIGN": "PASS", "A-NO-B": "UNKNOWN"},
+    ),
+    "typescript unresolved import gap and a file outside every component": (
+        TYPESCRIPT,
+        {"src/a/x.ts": UNRESOLVED, "src/c/z.ts": "export const z = 1;\n"},
+        {"ASSIGN": "FAIL", "A-NO-B": "UNKNOWN"},
+    ),
+    "typescript unresolved import gap and a generated file outside every component": (
+        TYPESCRIPT,
+        {"src/a/x.ts": UNRESOLVED, "src/c/gen.d.ts": "export declare const g: number;\n"},
+        {"ASSIGN": "FAIL", "A-NO-B": "UNKNOWN"},
+    ),
+    "typescript unresolved import gap and a generated file of a component": (
+        TYPESCRIPT,
+        {"src/a/x.ts": UNRESOLVED, "src/a/gen.d.ts": "export declare const g: number;\n"},
+        {"ASSIGN": "PASS", "A-NO-B": "UNKNOWN"},
+    ),
+    "typescript unresolved import gap and a syntax error gap": (
+        TYPESCRIPT,
+        {"src/a/x.ts": UNRESOLVED, "src/a/bad.ts": "export const = ;\n"},
+        {"ASSIGN": "UNKNOWN", "A-NO-B": "UNKNOWN"},
+    ),
     "dart clean": (DART, {}, {"ASSIGN": "PASS", "A-NO-B": "PASS"}),
     "dart gap": (DART, {"pubspec.yaml": WORKSPACE}, {"ASSIGN": "PASS", "A-NO-B": "UNKNOWN"}),
     "dart seen violation beside the gap": (
@@ -149,3 +182,16 @@ def test_a_gap_holds_the_rules_that_read_its_effect(
     assert rows(result) == expected, result["frame"].get("explained")
     gaps = result["frame"]["collection_gaps"]
     assert bool(gaps) == ("gap" in name), gaps
+
+
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs a file that cannot be read")
+def test_an_unreadable_source_holds_the_assignment_beside_a_resolution_gap(
+    release_core: Path, tmp_path: Path
+) -> None:
+    root = project(tmp_path, TYPESCRIPT, {"src/a/x.ts": UNRESOLVED})
+    (root / "src/a/x.ts").chmod(0)
+    try:
+        result = verdict(release_core, root)
+    finally:
+        (root / "src/a/x.ts").chmod(0o644)
+    assert rows(result)["ASSIGN"] == "UNKNOWN", result["frame"].get("explained")
