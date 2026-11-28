@@ -30,6 +30,8 @@ pub(super) const BUDGET: usize = 200_000;
 pub(super) enum Entity {
     /// A type form that is no receiver: a class instance, an alias, a factory result.
     Clean,
+    /// Bindings that disagree (two classes): clean as a leaf, but no proven receiver or operand.
+    Mixed,
     /// A name of a standard typing-style module (or a builtin).
     Standard(String),
     Module(String),
@@ -81,7 +83,7 @@ impl<'a> Project<'a> {
             None => Entity::Standard(String::new()),
             Some(_) if all.contains(&Entity::Unknown) => Entity::Unknown,
             Some(first) if all.iter().all(|e| e == first) => first.clone(),
-            Some(_) => Entity::Clean,
+            Some(_) => Entity::Mixed,
         }
     }
 

@@ -667,6 +667,45 @@ SCOPES = {
             x: s
         """
     ),
+    "metaclass union returns a string": source(
+        """
+        class Meta(type):
+            def __or__(cls, other):
+                return str(PAYLOAD)
+
+
+        class C(metaclass=Meta):
+            pass
+
+
+        s = C | 'int'
+
+
+        class K:
+            x: s
+        """
+    ),
+    "subscript of a name with two class bindings": source(
+        """
+        class C:
+            def __class_getitem__(cls, key):
+                return str(PAYLOAD)
+
+
+        class D:
+            def __class_getitem__(cls, key):
+                return str(PAYLOAD)
+
+
+        Alias = C
+        Alias = D
+        s = Alias['key']
+
+
+        class K:
+            x: s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

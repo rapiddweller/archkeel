@@ -56,6 +56,7 @@ impl<'a> Project<'a> {
                         !self.defines_getitem(*m, *body, depth, active)
                             && self.plain_class(*m, *body, depth, active)
                     }
+                    Entity::Mixed => false,
                     _ => true,
                 };
                 if !proven {
@@ -77,8 +78,15 @@ impl<'a> Project<'a> {
             }
             Expr::Starred(node) => self.dynamic(&node.value, at, found, depth, active),
             Expr::BinOp(node) if node.op == Operator::BitOr => {
-                self.dynamic(&node.left, at, found, depth, active);
-                self.dynamic(&node.right, at, found, depth, active);
+                let operands = [&node.left, &node.right];
+                operands
+                    .iter()
+                    .for_each(|o| self.dynamic(o, at, found, depth, active));
+                // `|` calls the operator of the class or of its metaclass.
+                let unproven = operands
+                    .iter()
+                    .filter(|o| !self.operand(o, at, depth, active));
+                found.extend(unproven.map(|o| o.range()));
             }
             other => found.push(other.range()),
         }
@@ -338,7 +346,26 @@ impl<'a> Project<'a> {
             Entity::Standard(path) => Entity::Standard(format!("{path}.{attr}")),
             Entity::Module(module) => self.member(&module, attr, depth, active),
             Entity::Class(m, body) => self.attribute(m, body, attr, depth, active),
-            Entity::Clean | Entity::Unknown => Entity::Unknown,
+            Entity::Clean | Entity::Mixed | Entity::Unknown => Entity::Unknown,
+        }
+    }
+
+    /// True when `expr` is no class of the scan with a metaclass and no mixed binding: only
+    /// then does `expr | other` run the union of `type` and not an operator of the scan.
+    fn operand(
+        &self,
+        expr: &Expr,
+        at: (usize, ScopeId),
+        depth: usize,
+        active: &mut Active,
+    ) -> bool {
+        if !matches!(expr, Expr::Name(_) | Expr::Attribute(_)) {
+            return true;
+        }
+        match self.path(expr, at.0, at.1, depth, active) {
+            Entity::Class(m, body) => self.plain_class(m, body, depth, active),
+            Entity::Mixed => false,
+            _ => true,
         }
     }
 
