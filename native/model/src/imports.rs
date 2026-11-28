@@ -44,6 +44,7 @@ pub(crate) struct Published {
     pub(crate) outside: Option<String>,
     pub(crate) other_crate: bool,
     pub(crate) withheld: Option<(RouteWithheld, Option<String>)>,
+    pub(crate) hops: Vec<String>,
 }
 
 impl Published {
@@ -226,8 +227,7 @@ pub(crate) struct Split {
     pub(crate) imports: Vec<Import>,
     /// The resolved macro bodies, in the order of the reply.
     pub(crate) macro_bodies: Vec<MacroBody>,
-    /// The number of unresolved imports that no collector gap names (each is a coverage
-    /// failure of the reference engine).
+    /// The unresolved imports that no collector gap names (each is a coverage failure).
     pub(crate) unknown: usize,
     /// The names that the records of the reply bind or declare.
     pub(crate) names: Names,
@@ -360,6 +360,7 @@ pub(crate) fn split(facts: &Facts, marks: TargetMarks, declared: impl Fn(&str) -
                 outside: data.published_as.clone(),
                 other_crate: data.other_crate == Some(true),
                 withheld: data.withheld(),
+                hops: data.route_withheld_hops.clone().unwrap_or_default(),
             },
             relative: data.relative_level != 0,
             resolved,

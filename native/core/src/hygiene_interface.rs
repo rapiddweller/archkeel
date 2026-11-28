@@ -29,7 +29,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use archkeel_contract::policy::InsideMount;
 use archkeel_contract::Component;
 use archkeel_model::{
-    facade_types, publishes, withheld_cause, ComponentId, Import, Model, ModelTree,
+    facade_types, publishes, withheld_cause, withheld_hops, ComponentId, Import, Model, ModelTree,
 };
 
 use crate::hygiene_refs::Finding;
@@ -144,7 +144,8 @@ fn unknown(pointer: String, entry: &str, records: &[&Import]) -> Row {
         .filter(|r| r.target_module() == module || r.reexport_chain().iter().any(touches))
         .collect();
     // A route that the collector withholds (AD-1210) may pass a facade to this entry: an import
-    // of the entry's name with a stated cause is a held route, not an absent one (#2198).
+    // of the entry's name, or of a name that a re-export gives it, with a stated cause is a held
+    // route, not an absent one (#2198, #2203).
     let name = entry.split_once(':').map(|(_, name)| name);
     let held: Vec<&&Import> = records
         .iter()
@@ -152,7 +153,7 @@ fn unknown(pointer: String, entry: &str, records: &[&Import]) -> Row {
         .filter(|r| {
             name.map_or_else(
                 || seen.iter().any(|s| std::ptr::eq(*s, *r)),
-                |n| r.symbol() == Some(n),
+                |n| r.symbol() == Some(n) || withheld_hops(r).contains(&format!("{module}.{n}")),
             )
         })
         .collect();

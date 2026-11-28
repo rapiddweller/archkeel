@@ -626,7 +626,8 @@
         "native.archkeel_model:stable",
         "native.archkeel_model:unused_allowances",
         "native.archkeel_model:unused_public",
-        "native.archkeel_model:withheld_cause"
+        "native.archkeel_model:withheld_cause",
+        "native.archkeel_model:withheld_hops"
       ],
       "decided_by": "architect"
     },
@@ -1201,6 +1202,7 @@
         "native.archkeel_model.interface:publishes",
         "native.archkeel_model.interface:receipt",
         "native.archkeel_model.interface:withheld_cause",
+        "native.archkeel_model.interface:withheld_hops",
         "native.archkeel_model.placement:unused_allowances",
         "native.archkeel_model.placement:violations",
         "native.archkeel_model.published:Unused",
@@ -2837,7 +2839,8 @@
             "native.archkeel_model:in_scope",
             "native.archkeel_model:publishes",
             "native.archkeel_model:unused_allowances",
-            "native.archkeel_model:withheld_cause"
+            "native.archkeel_model:withheld_cause",
+            "native.archkeel_model:withheld_hops"
           ]
         },
         {
@@ -7233,6 +7236,7 @@
         "native.archkeel_python_collector.survey.globals_project",
         "native.archkeel_python_collector.survey.globals_read",
         "native.archkeel_python_collector.survey.globals_uses",
+        "native.archkeel_python_collector.survey.hazards_split.inert_texts",
         "native.archkeel_python_collector.survey.value",
         "native.archkeel_python_collector.survey.uses_typing_guard",
         "native.archkeel_python_collector.survey.module_uses",
@@ -7307,6 +7311,7 @@
         "native.archkeel_python_collector.symbols.class",
         "native.archkeel_python_collector.symbols.sites",
         "native.archkeel_python_collector.survey.hazards",
+        "native.archkeel_python_collector.survey.hazards_split.inert_texts",
         "native.archkeel_python_collector.survey.typing_count",
         "native.archkeel_python_collector.survey.call_navigation",
         "native.archkeel_python_collector.survey.constructs",
