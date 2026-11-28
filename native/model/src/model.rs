@@ -97,9 +97,7 @@ impl Model {
         let states =
             (graph.constructs().capabilities.iter()).any(|(name, _)| name == "string_import");
         let contract = match graph.settings().namespace() {
-            namespace if domain.is_none() && states && !namespace.is_empty() => {
-                contract.with_string_import_rule(namespace)
-            }
+            namespace if domain.is_none() && states => contract.with_string_import_rule(namespace),
             _ => contract,
         };
         let modules = graph.modules();

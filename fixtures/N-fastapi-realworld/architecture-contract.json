@@ -1,5 +1,5 @@
 {
- "schema_version": "2.2.0",
+ "schema_version": "3.22.0",
  "components": [
   {
    "id": "COMP-API",
@@ -289,5 +289,29 @@
    "target": "fastapi.dependencies",
    "include_type_checking": true
   }
- ]
+ ],
+  "declarations": {
+    "string_imports": [
+      {
+        "id": "STRING-IMPORT-UJSON",
+        "module": "fastapi.responses",
+        "line": 28,
+        "target": "ujson",
+        "rationale": "The optional JSON library loads on demand; a missing library leaves the name None and the response class refuses to render.",
+        "provenance": [
+          "docs/architecture"
+        ]
+      },
+      {
+        "id": "STRING-IMPORT-ORJSON",
+        "module": "fastapi.responses",
+        "line": 34,
+        "target": "orjson",
+        "rationale": "The optional JSON library loads on demand; a missing library leaves the name None and the response class refuses to render.",
+        "provenance": [
+          "docs/architecture"
+        ]
+      }
+    ]
+  }
 }

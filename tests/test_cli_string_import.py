@@ -152,3 +152,14 @@ def test_a_contract_that_defines_the_built_in_id_is_refused_by_hygiene(
     result = scan(release_core, tmp_path, "import os\n", rules=[own])
     reasons = " ".join(gap["reason"] for gap in result["gaps"])
     assert "rule.reserved_id" in reasons, reasons
+
+
+def test_an_import_root_layout_with_an_empty_namespace_holds_the_rule(
+    release_core: Path, tmp_path: Path
+) -> None:
+    root = project(tmp_path, {**BASE, "src/app/client.py": "VALUE = __import__('datetime')\n"})
+    config = (root / "archkeel.toml").read_text().replace('namespace = "app"', 'namespace = ""')
+    (root / "archkeel.toml").write_text(config)
+    result = verdict(release_core, root)
+    assert status(result) == "FAIL"
+    assert result["frame"]["violations"]["STRING-IMPORT"] == 1
