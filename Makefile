@@ -179,13 +179,16 @@ self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
 # each part. The gate (AD-1260) then checks each part on its own rules: it fails when the core gave no
 # usable answer, or says FAIL or a violation for any part; UNKNOWN never fails it. A FAIL or UNKNOWN exit
 # (1 or 2) of the run does not stop make; a refusal leaves no result, and the gate fails on that.
+# AD-1420: when `ARCHKEEL_SELFSCAN_CACHE` names a directory that holds the saved result of main for these exact
+# inputs (`tools/self_scan_cache.py`), the scan is not run and the gate judges that result; else the scan runs.
 SYSTEM_DOCUMENT := docs/architecture/architecture-system.json
 # AD-1088: the JSON of the same run, for `make self-check`.
 SYSTEM_RESULT := test-artifacts/validation-system/result.json
 self-validate-system: core
 	@mkdir -p $(dir $(SYSTEM_RESULT))
 	@rm -f $(SYSTEM_RESULT)
-	@$(UV) run --locked archkeel report --text --topology --config $(SYSTEM_DOCUMENT) --output $(SYSTEM_RESULT) --format json $(if $(NATIVE_SELFCHECK_TIMINGS),--timings "$(NATIVE_SELFCHECK_TIMINGS)"); test $$? -le 2
+	@if [ -n "$(ARCHKEEL_SELFSCAN_CACHE)" ] && $(UV) run --locked python tools/self_scan_cache.py hit --dir "$(ARCHKEEL_SELFSCAN_CACHE)" --out $(SYSTEM_RESULT); then :; \
+	else $(UV) run --locked archkeel report --text --topology --config $(SYSTEM_DOCUMENT) --output $(SYSTEM_RESULT) --format json $(if $(NATIVE_SELFCHECK_TIMINGS),--timings "$(NATIVE_SELFCHECK_TIMINGS)"); test $$? -le 2; fi
 	@$(UV) run --locked python tools/self_check_gate.py $(SYSTEM_RESULT)
 	@echo "Architecture rules of the system: full result: $(SYSTEM_RESULT)"
 
