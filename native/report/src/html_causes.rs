@@ -44,7 +44,7 @@ pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
             .unwrap_or("other");
         let total = held.map_or(0, |h| h.total);
         // A cause with no typed form is told apart by the text of the core.
-        let text = if matches!(kind, "other" | "interface_imports") {
+        let text = if matches!(kind, "other" | "interface_imports" | "uml_assessments") {
             reason
         } else {
             ""
@@ -141,7 +141,7 @@ pub(super) fn anchor(cause: &Cause<'_>) -> String {
         hash.wrapping_mul(31).wrapping_add(u32::from(byte))
     });
     match cause.kind {
-        "other" | "named" | "interface_imports" => {
+        "other" | "named" | "interface_imports" | "uml_assessments" => {
             format!("cause-{}-{}-{text:08x}", cause.kind, cause.total)
         }
         kind => format!("cause-{kind}-{}", cause.total),

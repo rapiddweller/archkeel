@@ -547,6 +547,7 @@
         }
       ],
       "public": [
+        "native.archkeel_model:AbsentSymbol",
         "native.archkeel_model:Applied",
         "native.archkeel_model:Cause",
         "native.archkeel_model:ComponentId",
@@ -703,6 +704,7 @@
         "native.archkeel_model.ids:id_of",
         "native.archkeel_model.needs:Need",
         "native.archkeel_model.needs:Needs",
+        "native.archkeel_model.reason:AbsentSymbol",
         "native.archkeel_model.reason:Hygiene",
         "native.archkeel_model.reason:Input",
         "native.archkeel_model.reason:Reason",
@@ -2233,6 +2235,7 @@
           "component": "model",
           "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363).",
           "through": [
+            "native.archkeel_model:AbsentSymbol",
             "native.archkeel_model:Applied",
             "native.archkeel_model:Cause",
             "native.archkeel_model:CoverageGap",

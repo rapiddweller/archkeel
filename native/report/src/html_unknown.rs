@@ -287,7 +287,14 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
     }
     // The fold is offered only when it adds something: a reason that the title already says whole
     // is not repeated.
-    if ["other", "named", "scoped_gaps", "interface_imports"].contains(&found.kind)
+    if [
+        "other",
+        "named",
+        "scoped_gaps",
+        "interface_imports",
+        "uml_assessments",
+    ]
+    .contains(&found.kind)
         && found.reason != title(found)
     {
         html.push_str(&format!(
@@ -455,5 +462,23 @@ mod tests {
         let rendered = page(&frame);
         assert!(rendered.contains("ambiguous re-export"));
         assert!(rendered.contains("unread __all__ of d"));
+    }
+
+    #[test]
+    fn two_uml_holds_with_different_causes_are_two_cards() {
+        let frame = json!({
+            "status": "UNKNOWN",
+            "rules": {"A": ["uml_target", "UNKNOWN"], "B": ["uml_target", "UNKNOWN"]},
+            "explained": {
+                "A": "the UML target: 2 assessments cannot be decided: not in the symbol inventory: a.X (module a: escaped_name)",
+                "B": "the UML target: 2 assessments cannot be decided: not in the symbol inventory: b.Y (module b: outside_write)"
+            },
+            "explain": {"holds": {"rules": {
+                "A": {"cause": "no_receipt", "kind": "uml_assessments", "total": 2},
+                "B": {"cause": "no_receipt", "kind": "uml_assessments", "total": 2}}}}
+        });
+        let rendered = page(&frame);
+        assert!(rendered.contains("a.X (module a: escaped_name)"));
+        assert!(rendered.contains("b.Y (module b: outside_write)"));
     }
 }
