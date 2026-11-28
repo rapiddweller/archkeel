@@ -407,8 +407,8 @@ impl<'a> Project<'a> {
         bases
             .into_iter()
             .all(|base| match self.path(base, m, parent, depth + 1, active) {
-                // `EnumType` is a metaclass of the standard library: it subscripts to a member.
-                Entity::Standard(path) => !path.starts_with("enum."),
+                // Only a base of a module that holds plain types: `enum` and the others bring a metaclass.
+                Entity::Standard(path) => type_subscription(&path),
                 Entity::Class(m2, b2) => {
                     depth < MAX_DEPTH && self.plain_class(m2, b2, depth + 1, active)
                 }

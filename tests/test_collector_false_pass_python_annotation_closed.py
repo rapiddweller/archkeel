@@ -734,6 +734,22 @@ SCOPES = {
             x: s
         """
     ),
+    "enum base reached through a standard re-export": source(
+        """
+        import re
+
+
+        class C(str, re.enum.Enum):
+            member = PAYLOAD
+
+
+        s = C['member']
+
+
+        class K:
+            x: s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)
