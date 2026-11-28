@@ -45,7 +45,7 @@ VERSION = 1
 # these formats, which no collector reads as a source. A cited document is hashed by the entry.
 NEUTRAL_SUFFIXES = (".md", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf")
 # Folders that the collectors skip (a skip list, a `CACHEDIR.TAG` or a `pyvenv.cfg`) and that CI
-# fills after the key is made. Nothing counts in them, except a `.cargo` folder (the Rust collector).
+# fills after the key is made. Nothing counts in them, except a `.cargo` folder (Rust collector).
 SKIPPED_DIRS = {"target", "node_modules", ".venv", "__pycache__", ".mypy_cache", ".ruff_cache"}
 # These folders have no marker, so the Python walk enters them: only a script counts in them.
 OUTPUT_DIRS = {".pytest_cache", "test-artifacts"}
