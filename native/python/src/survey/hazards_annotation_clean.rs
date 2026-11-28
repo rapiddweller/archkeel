@@ -51,8 +51,11 @@ impl<'a> Project<'a> {
                 let base = self.path(&node.value, at.0, at.1, depth, active);
                 let proven = match &base {
                     Entity::Standard(path) => type_subscription(path),
-                    // A class of the scan can define `__class_getitem__` to return any value.
-                    Entity::Class(m, body) => !self.defines_getitem(*m, *body, depth, active),
+                    // A class of the scan, or its metaclass, can subscript to any value.
+                    Entity::Class(m, body) => {
+                        !self.defines_getitem(*m, *body, depth, active)
+                            && self.plain_class(*m, *body, depth, active)
+                    }
                     _ => true,
                 };
                 if !proven {

@@ -649,6 +649,24 @@ SCOPES = {
             "else:\n    import inspect as alias\n"
         },
     ),
+    "metaclass subscription returns a string": source(
+        """
+        class Meta(type):
+            def __getitem__(cls, key):
+                return str(PAYLOAD)
+
+
+        class C(metaclass=Meta):
+            pass
+
+
+        s = C['key']
+
+
+        class K:
+            x: s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)
