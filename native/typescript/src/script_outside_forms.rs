@@ -190,9 +190,8 @@ impl Reader<'_> {
         // value. A literal value can be no function.
         let name = Reader::text(self, root);
         let global = Node::kind(&root) == "identifier" && !self.declared.contains(&name);
-        let literal = value.is_some_and(|value| {
-            crate::script_types::LITERAL_KINDS.contains(&Node::kind(&unwrapped(value)))
-        });
+        let literal =
+            value.is_some_and(|value| crate::script_types::no_function(value, &unwrapped));
         let path = accessors
             .iter()
             .rev()

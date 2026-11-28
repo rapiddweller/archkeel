@@ -82,7 +82,7 @@ pub(crate) fn key_form() -> &'static str {
 }
 
 /// The kinds of a literal value: it is no function, so a write of it patches no call (#1674).
-pub(crate) const LITERAL_KINDS: [&str; 7] = [
+const LITERAL_KINDS: [&str; 7] = [
     "string",
     "number",
     "true",
@@ -91,6 +91,42 @@ pub(crate) const LITERAL_KINDS: [&str; 7] = [
     "undefined",
     "template_string",
 ];
+
+/// The deepest value that `no_function` follows: a chain of choices or assignments this long is not read.
+const NO_FUNCTION_DEPTH: usize = 16;
+
+/// A value that can be no function, so that a write of it patches no call (AD-1470): a literal, a
+/// choice between such values (`dark ? "light" : "dark"`) and an assignment of one
+/// (`a = b = 64`). A value from a call, a name or a member stays a possible function.
+/// `unwrap` removes the parentheses and the type wrappers of a node.
+pub(crate) fn no_function<'t>(
+    node: tree_sitter::Node<'t>,
+    unwrap: &dyn Fn(tree_sitter::Node<'t>) -> tree_sitter::Node<'t>,
+) -> bool {
+    fn read<'t>(
+        node: tree_sitter::Node<'t>,
+        unwrap: &dyn Fn(tree_sitter::Node<'t>) -> tree_sitter::Node<'t>,
+        depth: usize,
+    ) -> bool {
+        let node = unwrap(node);
+        if LITERAL_KINDS.contains(&node.kind()) {
+            return true;
+        }
+        let next = depth.saturating_sub(1);
+        match node.kind() {
+            _ if depth == 0 => false,
+            "ternary_expression" => ["consequence", "alternative"].iter().all(|field| {
+                node.child_by_field_name(field)
+                    .is_some_and(|branch| read(branch, unwrap, next))
+            }),
+            "assignment_expression" => node
+                .child_by_field_name("right")
+                .is_some_and(|value| read(value, unwrap, next)),
+            _ => false,
+        }
+    }
+    read(node, unwrap, NO_FUNCTION_DEPTH)
+}
 
 /// A member patch of a free global (#1674): `Math.max = f` patches the path `max` of `Math`,
 /// `document.body.style.x = v` the path `body.style.x`. A key that is no literal ends the path, so
@@ -136,4 +172,8 @@ pub(crate) struct Script {
     pub amp_blockers: Vec<Blocker>,
     /// The member patches of a free global (`Math.max = f`, #1674).
     pub patches: Vec<Patch>,
+    /// The paths of two or more names that the file writes only with a value that is no function
+    /// (AD-1470): they patch no call, so a file outside the scan roots that writes them replaces
+    /// no global.
+    pub plain_member_paths: Vec<Vec<String>>,
 }

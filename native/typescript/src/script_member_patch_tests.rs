@@ -151,3 +151,105 @@ fn a_long_call_chain_is_scanned_in_linear_time() {
     holds(&[("src/b.ts", &chain)], "Math");
     assert!(start.elapsed().as_secs() < 60, "{:?}", start.elapsed());
 }
+
+// AD-1470: a member write whose value can be no function patches no call. A literal was already
+// such a value (#1674); a choice of literals and an assignment of one are too. A value from a
+// call, a name or a member stays a possible function, and so does one branch of a choice.
+const READS_THEME: &str = "export const t = document.documentElement.dataset.theme;\n\
+                           export const e = new Error('x');\n";
+const HIDDEN: &str = "export function hidden(): any { return 1; }\n";
+
+fn holds_document(files: &[(&str, &str)]) -> bool {
+    titles(READS_THEME, files)
+        .iter()
+        .any(|title| title.starts_with("Script global document "))
+}
+
+fn holds_error(files: &[(&str, &str)]) -> bool {
+    titles(READS_THEME, files)
+        .iter()
+        .any(|title| title.starts_with("Script global Error "))
+}
+
+#[test]
+fn a_choice_of_literals_patches_no_call_in_a_scanned_file_and_outside() {
+    let toggle = "declare const dark: boolean;\n\
+                  document.documentElement.dataset.theme = dark ? 'light' : 'dark';\nexport {};\n";
+    assert!(!holds_document(&[("src/b.ts", toggle)]), "scanned");
+    assert!(
+        !holds_document(&[(
+            "boot.js",
+            &toggle
+                .replace("declare const dark: boolean;\n", "var dark = 1;\n")
+                .replace("export {};\n", "")
+        )]),
+        "outside"
+    );
+    let nested = "declare const a: boolean, b: boolean;\n\
+                  document.documentElement.dataset.theme = a ? 'x' : (b ? 'y' : 'z');\nexport {};\n";
+    assert!(!holds_document(&[("src/b.ts", nested)]), "a nested choice");
+}
+
+#[test]
+fn an_assignment_chain_of_a_literal_patches_no_call_outside() {
+    // The ELK form: the member of `Error` gets a number twice in one statement.
+    let chain = "Error.stackTraceLimit = Error.stackTraceLimit = 64;\n";
+    assert!(!holds_error(&[("boot.js", chain)]));
+    assert!(!holds_error(&[(
+        "boot.js",
+        "Error.stackTraceLimit = 64;\n"
+    )]));
+}
+
+#[test]
+fn a_possible_function_still_withholds_the_proof() {
+    for patch in [
+        "document.documentElement.dataset.theme = pick();",
+        "document.documentElement.dataset.theme = dark ? 'light' : hidden;",
+        "document.documentElement.dataset.theme = dark ? hidden : 'dark';",
+        "document.documentElement.dataset.theme = other.theme;",
+        "document.documentElement.dataset.theme = (dark ? 'a' : 'b') || hidden;",
+        "document.documentElement.dataset.theme = value = hidden;",
+    ] {
+        let b = format!(
+            "{HIDDEN}declare const dark: boolean, other: any, value: any;\n\
+             declare function pick(): any;\n{patch}\nexport {{}};\n"
+        );
+        assert!(holds_document(&[("src/b.ts", &b)]), "scanned: {patch}");
+        let outside = format!("import {{ hidden }} from './src/b';\n{patch}\n");
+        let files = [("src/b.ts", HIDDEN), ("boot.ts", outside.as_str())];
+        assert!(holds_document(&files), "outside: {patch}");
+    }
+}
+
+#[test]
+fn a_path_that_any_other_write_gives_a_function_stays_withheld_outside() {
+    let mixed = "import { hidden } from './src/b';\nError.stackTraceLimit = 64;\n\
+                 Error.stackTraceLimit = hidden;\n";
+    assert!(holds_error(&[("src/b.ts", HIDDEN), ("boot.ts", mixed)]));
+    let other_member = "import { hidden } from './src/b';\nError.stackTraceLimit = 64;\n\
+                        Error.captureStackTrace = hidden;\n";
+    assert!(holds_error(&[
+        ("src/b.ts", HIDDEN),
+        ("boot.ts", other_member)
+    ]));
+}
+
+#[test]
+fn a_destructuring_target_takes_its_value_from_a_part_or_a_default_not_from_the_right_side() {
+    // The right side is a plain value, but each target gets something else: a default, a part of an
+    // array, the values of a loop. Node runs `hidden` after each of these.
+    for patch in [
+        "[document.documentElement.dataset.theme = hidden] = flag ? '' : '';",
+        "[document.documentElement.dataset.theme = hidden] = '';",
+        "({ a: document.documentElement.dataset.theme = hidden } = {});",
+        "[document.documentElement.dataset.theme] = [hidden];",
+        "for (document.documentElement.dataset.theme of [hidden]) {}",
+    ] {
+        let b = format!("{HIDDEN}declare const flag: boolean;\n{patch}\nexport {{}};\n");
+        assert!(holds_document(&[("src/b.ts", &b)]), "scanned: {patch}");
+        let outside = format!("import {{ hidden }} from './src/b';\nvar flag = 1;\n{patch}\n");
+        let files = [("src/b.ts", HIDDEN), ("boot.ts", outside.as_str())];
+        assert!(holds_document(&files), "outside: {patch}");
+    }
+}

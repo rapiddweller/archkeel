@@ -23,6 +23,8 @@ pub(crate) struct Declarations {
     pub members: HashMap<Span, Vec<Member>>,
     pub writes: Vec<Write>,
     pub paths: Vec<Vec<String>>,
+    /// The paths of two or more names that every write gives a value that is no function (AD-1470).
+    pub plain_member_paths: Vec<Vec<String>>,
     pub top_level_paths: Vec<Vec<String>>,
     /// The writes of the one check (AD-460); the script writes take them too.
     pub checked: Vec<Write>,
@@ -42,6 +44,9 @@ struct Gathered<'t> {
     at: HashMap<Span, usize>,
     writes: Vec<Write>,
     paths: Vec<Vec<String>>,
+    /// The paths of two or more names, split by the kind of the value that the write gives them.
+    plain_members: Vec<Vec<String>>,
+    other_members: Vec<Vec<String>>,
     top_level: Vec<Vec<String>>,
     checked: Vec<Write>,
     /// A node of an amplifier form wrote an unknown name (AD-540).
@@ -140,6 +145,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     fn write_paths(&self, node: Node<'t>, target: Node<'t>, found: &mut Gathered<'t>) {
         let tree: &Tree<'_, '_> = self.tree;
         found.writes.push(self.write_of(node, target));
+        let first = found.paths.len();
         let route = tree.static_path(target);
         self.route_paths(target, &route, found);
         if route.len() > 1 {
@@ -147,6 +153,14 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 .paths
                 .extend(self.write_alias_path(target, &[], None, None));
         }
+        let plain = tree.gives_no_function(node, target);
+        let members = found.paths[first..].iter().filter(|path| path.len() > 1);
+        let split = if plain {
+            &mut found.plain_members
+        } else {
+            &mut found.other_members
+        };
+        split.extend(members.cloned());
     }
 
     /// The target of an assignment, unless the object that it writes into is a call.
@@ -250,10 +264,15 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             .collect();
         let unlabelled_empty =
             found.paths.iter().filter(|path| path.is_empty()).count() > found.labelled_empty;
+        let plain_member_paths = unique(found.plain_members)
+            .into_iter()
+            .filter(|path| !found.other_members.contains(path))
+            .collect();
         Declarations {
             members,
             writes: unique(found.writes),
             paths: unique(found.paths),
+            plain_member_paths,
             top_level_paths: unique(found.top_level),
             checked: unique(found.checked),
             amplified: found.amplified,
