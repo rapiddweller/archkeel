@@ -11,6 +11,8 @@
 4. **Shell.** `GapAction.ROUTE_HELD`; the text is "route held, not proven: read the cause; the entry may be in use".
 5. **Verdict.** No verdict, rule status or gap count moves toward PASS. The gap stays UNKNOWN; only its action and text change.
 
+**Amended by #2203.** The collector also keeps the hops of a withheld route (`route_withheld_hops`, not on the wire). An import whose hops reach `module.name` of the entry through a re-export under another name (`from app.service import run as public_run`) is a held route to that entry. A rename of an unrelated name hides nothing.
+
 **Measured** (copies of EE `560d5c7ef` and CE `23bd48d9`, hold actions of `interface.usage_unknown`):
 
 | | before | after |

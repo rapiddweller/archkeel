@@ -626,7 +626,8 @@
         "native.archkeel_model:stable",
         "native.archkeel_model:unused_allowances",
         "native.archkeel_model:unused_public",
-        "native.archkeel_model:withheld_cause"
+        "native.archkeel_model:withheld_cause",
+        "native.archkeel_model:withheld_hops"
       ],
       "decided_by": "architect"
     },
@@ -1201,6 +1202,7 @@
         "native.archkeel_model.interface:publishes",
         "native.archkeel_model.interface:receipt",
         "native.archkeel_model.interface:withheld_cause",
+        "native.archkeel_model.interface:withheld_hops",
         "native.archkeel_model.placement:unused_allowances",
         "native.archkeel_model.placement:violations",
         "native.archkeel_model.published:Unused",
@@ -2837,7 +2839,8 @@
             "native.archkeel_model:in_scope",
             "native.archkeel_model:publishes",
             "native.archkeel_model:unused_allowances",
-            "native.archkeel_model:withheld_cause"
+            "native.archkeel_model:withheld_cause",
+            "native.archkeel_model:withheld_hops"
           ]
         },
         {
