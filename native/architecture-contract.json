@@ -117,6 +117,7 @@
         "native.archkeel_facts.pyrepr:printable",
         "native.archkeel_facts.pyrepr:string",
         "native.archkeel_facts.pyrepr:string_with",
+        "native.archkeel_facts.request:BrowserSettings",
         "native.archkeel_facts.request:DartRequest",
         "native.archkeel_facts.request:Interpreter",
         "native.archkeel_facts.request:PythonRequest",
@@ -4805,6 +4806,7 @@
       "role": "component",
       "layer": "collector",
       "packages": [
+        "native.archkeel_typescript_collector.browser_entry",
         "native.archkeel_typescript_collector.script_depend",
         "native.archkeel_typescript_collector.script_deps",
         "native.archkeel_typescript_collector.script_global",
@@ -4835,6 +4837,7 @@
             "native.archkeel_facts.gap",
             "native.archkeel_facts.identity",
             "native.archkeel_facts.ids",
+            "native.archkeel_facts.request:BrowserSettings",
             "native.archkeel_facts:GapFact"
           ]
         },
@@ -7092,7 +7095,8 @@
         "native.archkeel_dart_collector.sites.references",
         "native.archkeel_dart_collector.sites.canonical",
         "native.archkeel_dart_collector.cargo_toml",
-        "native.archkeel_typescript_collector.script_outside_names"
+        "native.archkeel_typescript_collector.script_outside_names",
+        "native.archkeel_typescript_collector.browser_entry"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
       "provenance": [

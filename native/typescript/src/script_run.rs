@@ -33,6 +33,7 @@ impl Collection<'_> {
             &mut self.parsers,
             &self.roots,
             &self.preload_files,
+            self.request.resolver.browser.as_ref(),
         );
         let project = Project::new(&order, &kept, options.scripts_are_global());
         let dependency_scope = project

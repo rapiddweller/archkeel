@@ -320,3 +320,34 @@ fn the_explorer_excludes_test_sources_by_default_and_the_config_decides_otherwis
     commit(&root);
     assert!(hold(true).is_none());
 }
+
+// AD-1420: a missing entry refuses; a stated entry reaches the collector in the request.
+#[test]
+fn a_browser_entry_refuses_when_it_is_missing_and_reaches_the_request_when_it_is_there() {
+    let root = repository("H-typescript");
+    let config = root.join("archkeel.toml");
+    let text = fs::read_to_string(&config).unwrap();
+    fs::write(
+        &config,
+        format!("{text}browser_entry = \"web/index.html\"\n"),
+    )
+    .unwrap();
+    commit(&root);
+    let path = root.to_str().unwrap();
+    let refused = scan_with_options(&identity(path), 1 << 26, None, false).err();
+    let why = refused
+        .map(|refusal| refusal.to_string())
+        .unwrap_or_default();
+    assert!(
+        why.contains("scan browser entry is not a file: web/index.html"),
+        "{why}"
+    );
+    fs::create_dir_all(root.join("web")).unwrap();
+    fs::write(root.join("web/index.html"), "<!doctype html>\n").unwrap();
+    commit(&root);
+    let config = read_config(&root_of(&identity(path)).unwrap(), "archkeel.toml").unwrap();
+    assert_eq!(
+        request(&identity(path), &config)["resolver"]["browser"],
+        serde_json::json!({"entry": "web/index.html", "assets": ["web"]})
+    );
+}

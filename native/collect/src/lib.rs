@@ -406,6 +406,21 @@ fn read_config(root: &repository::Root, path: &str) -> Result<config::Config, Re
         let reason = format!("scan TypeScript config is not a file: {}", config.tsconfig);
         return Err(refused("config", reason));
     }
+    if let Some(browser) = &config.browser {
+        // AD-1420: an entry that cannot be read refuses; the scan never narrows to nothing.
+        if !root.is_file(&browser.entry) {
+            let reason = format!("scan browser entry is not a file: {}", browser.entry);
+            return Err(refused("config", reason));
+        }
+        if let Some(folder) = browser
+            .assets
+            .iter()
+            .find(|folder| !root.is_dir_or_file(folder, false))
+        {
+            let reason = format!("scan browser assets folder is not a folder: {folder}");
+            return Err(refused("config", reason));
+        }
+    }
     Ok(config)
 }
 
@@ -434,6 +449,9 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     }
     if config.import_roots_ambiguous {
         resolver["import_roots_ambiguous"] = Value::Bool(true);
+    }
+    if let Some(browser) = &config.browser {
+        resolver["browser"] = json!({"entry": browser.entry, "assets": browser.assets});
     }
     json!({
         "protocol_version": version,

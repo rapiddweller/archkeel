@@ -4,4 +4,13 @@ language = "typescript"
 namespace = "studio"
 contract = "studio/architecture-contract.json"
 tsconfig = "studio/tsconfig.json"
-roots = ["studio/src"]
+roots = [
+  "studio/src",
+  # The Studio page loads these two scripts; they are our code (AD-1420).
+  "native/report/assets/explorer/report-layout.js",
+  "native/report/assets/explorer/report-placement.js",
+]
+# The page that the Studio part ships. The core derives the browser scope from its script closure.
+browser_entry = "src/archkeel/cli/assets/explorer.html"
+# The server (src/archkeel/cli/core_explorer_http.py) serves a script from the first folder that has it.
+browser_assets = ["src/archkeel/cli/assets", "native/report/assets/explorer"]

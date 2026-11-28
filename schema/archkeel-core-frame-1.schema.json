@@ -4641,6 +4641,17 @@
             "bundler": {
               "const": true,
               "description": "The host writes `bundler` only when it is true, so false has one form: absent."
+            },
+            "browser": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/BrowserSettings"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The browser entry of the part (AD-1420): the page whose scripts are the browser code."
             }
           },
           "required": [
@@ -4720,6 +4731,28 @@
         }
       ],
       "description": "The settings of one language. The tag is the language that the collector reads."
+    },
+    "BrowserSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "entry": {
+          "type": "string",
+          "description": "A relative path of an HTML file inside the snapshot."
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Nonempty relative folders inside the snapshot, searched in order for a `src` path."
+        }
+      },
+      "required": [
+        "entry",
+        "assets"
+      ],
+      "description": "The page that a part ships to a browser, and the folders that serve its `src` paths."
     },
     "PythonPhase": {
       "oneOf": [

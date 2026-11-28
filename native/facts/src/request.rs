@@ -101,6 +101,19 @@ pub struct TypeScriptSettings {
     )]
     #[schemars(schema_with = "always_true")]
     pub bundler: bool,
+    /// The browser entry of the part (AD-1420): the page whose scripts are the browser code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser: Option<BrowserSettings>,
+}
+
+/// The page that a part ships to a browser, and the folders that serve its `src` paths.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BrowserSettings {
+    /// A relative path of an HTML file inside the snapshot.
+    pub entry: String,
+    /// Nonempty relative folders inside the snapshot, searched in order for a `src` path.
+    pub assets: Vec<String>,
 }
 
 /// The Rust collector has no settings: its resolver is `{"language": "rust"}`.
@@ -331,7 +344,13 @@ fn nested(left: &[&str], right: &[&str]) -> bool {
 impl Resolver {
     pub(crate) fn check(&self) -> Result<(), String> {
         match self {
-            Resolver::TypeScript(settings) => relative(&settings.tsconfig, "resolver.tsconfig"),
+            Resolver::TypeScript(settings) => {
+                relative(&settings.tsconfig, "resolver.tsconfig")?;
+                settings
+                    .browser
+                    .as_ref()
+                    .map_or(Ok(()), BrowserSettings::check)
+            }
             Resolver::Rust(_) | Resolver::Dart(_) => Ok(()),
             Resolver::Python(settings)
                 if settings.python.is_some() && settings.interpreter.is_some() =>
@@ -346,6 +365,18 @@ impl Resolver {
                 .as_ref()
                 .map_or(Ok(()), Interpreter::check),
         }
+    }
+}
+
+impl BrowserSettings {
+    fn check(&self) -> Result<(), String> {
+        relative(&self.entry, "resolver.browser.entry")?;
+        if self.assets.is_empty() {
+            return Err("resolver.browser.assets must be a nonempty array".to_owned());
+        }
+        self.assets
+            .iter()
+            .try_for_each(|folder| relative(folder, "resolver.browser.assets"))
     }
 }
 

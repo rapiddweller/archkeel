@@ -138,6 +138,17 @@ The collector deadline defaults to 300 seconds. A large repository that times ou
 than the platform's thread timeout limit. It changes only how long a collector may run; a
 timeout still exits without a complete observation.
 
+`browser_entry = "web/index.html"` in `[scan]` (TypeScript only, [AD-1460](architecture/decisions/ad-1460-the-browser-scope-of-a-part-is-the-script-closure-of-its-entry-page.md)) names
+the HTML page that the part ships to a browser. The core derives the browser scope from the scripts that the page loads
+(`<script src>`, `<link rel="modulepreload">`, then `import`, `export … from`, `import("…")`, `importScripts` and
+`new Worker` with a literal path, transitively). Only these files, outside the scan roots, can replace a global for the
+part; a fixture, a tool or a second page that no entry loads cannot, and a file that the entry loads stays in. Without
+`browser_entry`, every script of the repository outside the scan roots counts, and so does every Node preload.
+`browser_assets = ["web", "lib"]` names the folders that serve a path that starts with `/`, in order (default: the folder
+of the page); a relative path is resolved against the URL of the file that names it. A missing entry or folder refuses the
+run. A reference that cannot be followed (a path in no folder, a bare name, a path that is no literal) never narrows the
+scope: no global has a native proof, and the gap names the file and the reference.
+
 `rust_type_reach = true` in `[scan]` asks for compiler type-reach facts. Producing them runs `cargo check` on the
 scanned repository, and so its build scripts and procedural macros. The repository cannot allow that for itself:
 the operator must also set `ARCHKEEL_ALLOW_BUILD=1` in the environment of the run. Without it no cargo command

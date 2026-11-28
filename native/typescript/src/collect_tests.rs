@@ -28,6 +28,7 @@ pub(crate) fn request(tree: &Tree, exclude_test_sources: bool) -> TypeScriptRequ
         resolver: TypeScriptSettings {
             tsconfig: "tsconfig.json".to_owned(),
             bundler: false,
+            browser: None,
         },
     }
 }
