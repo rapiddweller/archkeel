@@ -208,3 +208,56 @@ fn a_loader_that_can_name_a_module_of_the_scan_escapes_it() {
         assert!(found.contains(&"app.lib".to_owned()), "{text}: {found:?}");
     }
 }
+
+/// A Rust extension file `text` (it names the C API of Python) is searched for `app.lib`.
+fn rust_names(text: &str) -> bool {
+    let source = format!("use pyo3::prelude::*;\n{text}");
+    escaped(&[("crates/ext/src/lib.rs", &source)]).contains(&"app.lib".to_owned())
+}
+
+#[test]
+fn a_word_in_a_rust_comment_names_no_module() {
+    // #2243: EE names `datamimic_ee.native` in a comment of its extension source.
+    for text in [
+        "// app.lib is the module that Python calls\nfn f() {}\n",
+        "/// app.lib\nfn f() {}\n",
+        "//! app.lib\n",
+        "/* app.lib */ fn f() {}\n",
+        "/* /* app.lib */ app.lib */ fn f() {}\n",
+        "fn f<'a>(x: &'a str) {} // app.lib\n",
+        "let q = '\"'; // app.lib\n",
+        "let u = '\\'';  // app.lib\n",
+        "let e = 'é'; // app.lib\n",
+        "let e = '😀'; /* app.lib */\n",
+    ] {
+        assert!(!rust_names(text), "{text}");
+    }
+}
+
+#[test]
+fn a_word_in_rust_code_still_names_the_module_whatever_a_comment_precedes() {
+    for text in [
+        "fn f() { m(\"app.lib\"); }\n",
+        "// a comment\nfn f() { m(\"app.lib\"); }\n",
+        "fn f() { let u = \"http://x\"; m(\"app.lib\"); }\n",
+        "fn f() { let u = r#\"//\"#; m(\"app.lib\"); }\n",
+        "fn f() { let u = r\"//\"; m(\"app.lib\"); }\n",
+        "fn f() { let u = br#\"/*\"#; m(\"app.lib\"); }\n",
+        "/* a */ fn f() { m(\"app.lib\"); }\n",
+        "/* /* a */ */ fn f() { m(\"app.lib\"); }\n",
+        "fn f() { let c = '/'; m(\"app.lib\"); } // end\n",
+        "fn f() { let s = \"a\\\"//\"; m(\"app.lib\"); }\n",
+        "#[doc = \"app.lib\"]\nfn f() {}\n",
+        "fn f<'a>(x: &'a str) { m(\"app.lib\"); }\n",
+        "take!('é' \"//\" \"app.lib\")\n",
+        "take!('😀' \"/*\" \"app.lib\")\n",
+    ] {
+        assert!(rust_names(text), "{text}");
+    }
+}
+
+#[test]
+fn a_comment_of_another_extension_language_still_names_the_module() {
+    let found = escaped(&[("vendor/patch.c", "/* app.lib */\n")]);
+    assert!(found.contains(&"app.lib".to_owned()));
+}
