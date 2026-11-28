@@ -132,7 +132,12 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
             "dynamic_import",
             "cast",
             "type_ignore",
-            "placeholder_body"
+            "placeholder_body",
+            "hasattr",
+            "setattr",
+            "delattr",
+            "eval",
+            "exec"
         ]
     );
     assert!(capabilities
@@ -144,13 +149,14 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
         capabilities.constructs[6].status,
         archkeel_facts::envelope::ConstructSupport::Partial
     );
+    // #1537: the run states a construct of a module `supported`; the module carries the gap.
     assert_eq!(
         capabilities.constructs[7].status,
-        archkeel_facts::envelope::ConstructSupport::Partial
+        archkeel_facts::envelope::ConstructSupport::Supported
     );
     assert_eq!(
         capabilities.constructs[8].status,
-        archkeel_facts::envelope::ConstructSupport::Partial
+        archkeel_facts::envelope::ConstructSupport::Supported
     );
     assert_eq!(
         capabilities.constructs[9].status,
@@ -198,7 +204,7 @@ fn the_validation_table_only_admits_partial_any_annotations() {
         .flat_map(|set| &set.constructs)
         .filter(|entry| entry.name == "any_annotation")
         .collect();
-    assert_eq!(entries.len(), 5);
+    assert_eq!(entries.len(), 6);
     assert!(entries
         .iter()
         .all(|entry| entry.statuses == [ConstructSupport::Partial]));

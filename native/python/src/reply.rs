@@ -81,13 +81,24 @@ fn validation(version: &str) -> Validation {
     let partial = [ConstructSupport::Partial];
     all = all.with_construct(Construct::AnyAnnotation.word(), &partial);
     registered.push(all.clone());
-    all = all.with_construct(Construct::DynamicImport.word(), &partial);
+    all = all.with_construct(Construct::DynamicImport.word(), &either);
     registered.push(all.clone());
-    all = all.with_construct(Construct::Cast.word(), &partial);
+    all = all.with_construct(Construct::Cast.word(), &either);
     registered.push(all.clone());
     all = all.with_construct(Construct::TypeIgnore.word(), &either);
     registered.push(all.clone());
-    registered.push(all.with_construct(Construct::Placeholder.word(), &either));
+    all = all.with_construct(Construct::Placeholder.word(), &either);
+    registered.push(all.clone());
+    for construct in [
+        Construct::Hasattr,
+        Construct::Setattr,
+        Construct::Delattr,
+        Construct::Eval,
+        Construct::Exec,
+    ] {
+        all = all.with_construct(construct.word(), &either);
+    }
+    registered.push(all);
     Validation {
         registered,
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),

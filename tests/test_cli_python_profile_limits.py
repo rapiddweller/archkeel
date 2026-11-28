@@ -31,6 +31,7 @@ CONSTRUCT = {
     "allowed_sources": [],
     "exact_sources": [],
 }
+# A hiding form of `setattr` is in the page: the survey cannot prove its absence there (#1537).
 UNREAD_CONSTRUCT = {**CONSTRUCT, "id": "NO-SETATTR", "constructs": ["setattr"]}
 PLACEMENT = {
     **RULE,
@@ -64,7 +65,10 @@ class Plant(NamedTuple):
     truth: str = ""
 
 
-GETATTR_PAGE = "import app.service.model as model\nVALUE = getattr(model, 'VALUE')\n"
+GETATTR_PAGE = (
+    "import app.service.model as model\nVALUE = getattr(model, 'VALUE')\n"
+    "def hides(table):\n    return table['setattr']\n"
+)
 PLANTS = {
     # Before AD-644 the construct limit held every rule of the run.
     "construct": Plant(
@@ -72,7 +76,7 @@ PLANTS = {
         [CONSTRUCT, UNREAD_CONSTRUCT],
         [],
         {"NO-GETATTR": "FAIL", "NO-SETATTR": "UNKNOWN"},
-        {"NO-SETATTR": "the collector examines no setattr"},
+        {"NO-SETATTR": "a written form can hide a site of"},
         truth=CALLS_GETATTR,
     ),
     "construct beside a seen violation": Plant(
@@ -80,7 +84,7 @@ PLANTS = {
         [CONSTRUCT, UNREAD_CONSTRUCT],
         [],
         {"NO-GETATTR": "FAIL", "NO-SETATTR": "UNKNOWN", "CLIENT-NO-SECRET": "FAIL"},
-        {"NO-SETATTR": "the collector examines no setattr"},
+        {"NO-SETATTR": "a written form can hide a site of"},
         truth=LOADS_SECRET,
     ),
     # A proven empty class inventory lets placement and the edge rules pass.
@@ -267,8 +271,7 @@ def test_broad_handler_is_proven_or_left_unknown(
     assert rows(result)["NO-BROAD-EXCEPT"] == expected, result["frame"]["explained"]
     if expected == "UNKNOWN":
         assert (
-            "construct absence is not completely observed"
-            in result["frame"]["explained"]["NO-BROAD-EXCEPT"]
+            "a written form can hide a site of" in result["frame"]["explained"]["NO-BROAD-EXCEPT"]
         )
     if expected == "FAIL":
         frame = result["frame"]
@@ -316,7 +319,8 @@ def test_dunder_dict_is_proven_or_left_unknown(
         ("f = vars\nvalue = f(item)\n", "UNKNOWN"),
         ("f = vars\n", "UNKNOWN"),
         ("vars = other\nvalue = vars(item)\n", "UNKNOWN"),
-        ("value = f(item)\n", "UNKNOWN"),
+        # #1537: a call of another name hides nothing; the module has no form that can hide `vars`.
+        ("value = f(item)\n", "PASS"),
         ("value = vars(item)\nother = f(item)\n", "FAIL"),
     ],
 )
@@ -330,7 +334,9 @@ def test_vars_call_is_proven_or_left_unknown(
     assert rows(result)["NO-VARS"] == expected, result["frame"]["explained"]
     if expected == "UNKNOWN":
         text = result["frame"]["explained"]["NO-VARS"]
-        wanted = "incomplete scope" if _trojan_horse(source) else "construct absence is not"
+        wanted = (
+            "incomplete scope" if _trojan_horse(source) else "a written form can hide a site of"
+        )
         assert wanted in text, text
     if expected == "FAIL":
         frame = result["frame"]
@@ -379,7 +385,7 @@ def test_literal_comparison_is_proven_or_left_unknown(
         ("f = getattr\nvalue = f(item, 'name')\n", "UNKNOWN"),
         ("f = getattr\n", "UNKNOWN"),
         ("getattr = other\nvalue = getattr(item, 'name')\n", "UNKNOWN"),
-        ("value = f(item, 'name')\n", "UNKNOWN"),
+        ("value = f(item, 'name')\n", "PASS"),
         ("value = getattr(item, 'name')\nother = f(item)\n", "FAIL"),
     ],
 )
@@ -393,7 +399,9 @@ def test_getattr_call_is_proven_or_left_unknown(
     assert rows(result)["NO-GETATTR"] == expected, result["frame"]["explained"]
     if expected == "UNKNOWN":
         text = result["frame"]["explained"]["NO-GETATTR"]
-        wanted = "incomplete scope" if _trojan_horse(source) else "construct absence is not"
+        wanted = (
+            "incomplete scope" if _trojan_horse(source) else "a written form can hide a site of"
+        )
         assert wanted in text, text
     if expected == "FAIL":
         frame = result["frame"]
@@ -443,7 +451,7 @@ def test_opaque_annotations_are_reported_or_left_unknown(
             "import_module = other\nvalue = import_module(name)\n",
             "UNKNOWN",
         ),
-        ("value = 1\n", "UNKNOWN"),
+        ("value = 1\n", "PASS"),
     ],
 )
 def test_dynamic_import_is_reported_or_left_unknown(
@@ -463,7 +471,7 @@ def test_dynamic_import_is_reported_or_left_unknown(
         ("import typing as t\nvalue = t.cast(int, obj)\n", "FAIL"),
         ("from typing_extensions import cast as c\nvalue = c(int, obj)\n", "FAIL"),
         ("from typing import cast\ncast = other\nvalue = cast(int, obj)\n", "UNKNOWN"),
-        ("value = other(int, obj)\n", "UNKNOWN"),
+        ("value = other(int, obj)\n", "PASS"),
     ],
 )
 def test_cast_is_reported_or_left_unknown(

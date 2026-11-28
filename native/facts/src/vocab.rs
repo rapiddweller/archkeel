@@ -168,6 +168,8 @@ closed! {
         PlaceholderBody = "placeholder_body",
         /// A use of `__dict__`.
         DunderDict = "dunder_dict",
+        /// A written form that can hide a site of a construct in its module (#1537).
+        UnseenForm = "unseen_form",
     }
 }
 

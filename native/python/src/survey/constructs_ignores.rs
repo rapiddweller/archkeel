@@ -45,7 +45,8 @@ impl Comments {
             .into_iter()
             .filter_map(|range| {
                 let comment = &text[range.clone()];
-                if !comment.contains("type") {
+                // Only a comment with both words can be a `type: ignore`; another comment hides nothing.
+                if !(comment.contains("type") && comment.contains("ignore")) {
                     return None;
                 }
                 let tag = comment

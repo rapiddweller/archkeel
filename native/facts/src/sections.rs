@@ -217,6 +217,9 @@ section_facts! {
         PlaceholderBody(PlaceholderData),
         /// A use of `__dict__`.
         DunderDict(PlainConstructData),
+        /// A written form that can hide a site of the construct in its module: the survey does
+        /// not record every site there, so the absence of the construct is not proven (#1537).
+        UnseenForm(PlainConstructData),
     }
 }
 

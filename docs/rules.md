@@ -354,7 +354,8 @@ module/package or an observed class, function or method by qualified name. Named
 owners require actual symbol evidence from the rule's scanned module scope; a
 missing owner or an owner outside an `inside` mount remains UNKNOWN. Owner receipts
 cite those symbols and do not extend the rule to the containing module. Incomplete
-source coverage still prevents PASS. Aliases/shadowing are limits. Exact type-ignore
+source coverage still prevents PASS. On Python, each module is decided on its own: a form that can hide a site
+(`f = hasattr`, `import builtins`) holds only the rules that judge that module (AD-1496). Aliases/shadowing are limits. Exact type-ignore
 allowances bind scope, line, AST statement and tag; moving or changing them needs
 review.
 
