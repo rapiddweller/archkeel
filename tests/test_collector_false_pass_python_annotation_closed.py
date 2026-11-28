@@ -718,6 +718,22 @@ SCOPES = {
             x: contextlib.AbstractContextManager
         """
     ),
+    "enum member by subscription of a standard metaclass": source(
+        """
+        import enum
+
+
+        class C(str, enum.Enum):
+            member = PAYLOAD
+
+
+        s = C['member']
+
+
+        class K:
+            x: s
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)
