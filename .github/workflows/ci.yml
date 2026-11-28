@@ -101,7 +101,7 @@ jobs:
           NATIVE_SELFCHECK_TIMINGS: ${{ runner.temp }}/native-selfcheck-timings.json
         run: make self-validate
 
-      # AD-1420: main saves the result of the self-scan under the key of its inputs. Only a run that passed the gate
+      # AD-1450: main saves the result of the self-scan under the key of its inputs. Only a run that passed the gate
       # reaches this step, and the tool refuses a result that does not show its inputs covered.
       - id: selfscan
         name: Save the self-scan result under the key of its inputs

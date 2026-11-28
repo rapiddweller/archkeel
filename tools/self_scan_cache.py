@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""A result cache of the self-scan (AD-1420). It is not a comparison and not a gate.
+"""A result cache of the self-scan (AD-1450). It is not a comparison and not a gate.
 
 The result of `archkeel report --config docs/architecture/architecture-system.json` is a pure
 function of the files that the scan reads and of the core that reads them. This tool keys a

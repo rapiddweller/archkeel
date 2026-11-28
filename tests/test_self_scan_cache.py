@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1420: a saved self-scan result is reused only when every input of the scan has its content.
+"""AD-1450: a saved self-scan result is reused only when every input of the scan has its content.
 
 Each case runs `tools/self_scan_cache.py` on a small Git repository with a result of the shape that
 the core writes. A hit needs the same static inputs and the same documents. Any other case is a miss

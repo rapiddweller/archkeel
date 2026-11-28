@@ -133,7 +133,7 @@ jobs:
         if: steps.build.outcome == 'success'
         run: test "${{ steps.build.outputs.static }}" = 0
 
-      # AD-1420: the self-scan result is a pure function of its inputs. The key names them (`tools/self_scan_cache.py`);
+      # AD-1450: the self-scan result is a pure function of its inputs. The key names them (`tools/self_scan_cache.py`);
       # main saves a result under it. A key that cannot be made, or a miss, runs the scan as before.
       - id: selfscan
         name: Name the inputs of the self-scan

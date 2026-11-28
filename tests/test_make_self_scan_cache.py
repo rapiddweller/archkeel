@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1420: `make self-validate-system` reuses a saved result for the same inputs and judges it.
+"""AD-1450: `make self-validate-system` reuses a saved result for the same inputs and judges it.
 
 A fake `uv` records each run of the scan. A hit runs no scan and the gate judges the saved result:
 a FAIL in it is red as a fresh FAIL is. A miss, and a damaged entry, run the scan as before.

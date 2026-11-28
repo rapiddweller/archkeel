@@ -1,4 +1,4 @@
-# AD-1420: The self-scan result is reused for the same inputs
+# AD-1450: The self-scan result is reused for the same inputs
 
 Status: accepted. Builds on AD-1380 (one system scan) and AD-1260 (the gate judges one run).
 

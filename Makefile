@@ -179,7 +179,7 @@ self-validate-system report-gallery: export ARCHKEEL_ALLOW_BUILD = 1
 # each part. The gate (AD-1260) then checks each part on its own rules: it fails when the core gave no
 # usable answer, or says FAIL or a violation for any part; UNKNOWN never fails it. A FAIL or UNKNOWN exit
 # (1 or 2) of the run does not stop make; a refusal leaves no result, and the gate fails on that.
-# AD-1420: when `ARCHKEEL_SELFSCAN_CACHE` names a directory that holds the saved result of main for these exact
+# AD-1450: when `ARCHKEEL_SELFSCAN_CACHE` names a directory that holds the saved result of main for these exact
 # inputs (`tools/self_scan_cache.py`), the scan is not run and the gate judges that result; else the scan runs.
 SYSTEM_DOCUMENT := docs/architecture/architecture-system.json
 # AD-1088: the JSON of the same run, for `make self-check`.
