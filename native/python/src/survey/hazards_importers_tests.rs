@@ -193,6 +193,8 @@ fn a_call_that_evaluates_annotations_is_a_site_and_the_annotations_are_none() {
         "import inspect as i\ni.get_annotations(f, eval_str=flag)\n",
         "import annotationlib\nannotationlib.get_annotations(f, eval_str=True)\n",
         "import inspect\ninspect.get_annotations(f, **{'eval_str': True})\n",
+        "import typing\ntyping.ForwardRef._evaluate(r, {}, {})\n",
+        "box.ref._evaluate({}, {})\n",
         "import inspect\nread = inspect.get_annotations\nread(f, eval_str=True)\n",
         "import inspect\ninspect.Signature.from_callable(f, eval_str=True)\n",
         "from inspect import signature\nsignature(f, eval_str=True)\n",

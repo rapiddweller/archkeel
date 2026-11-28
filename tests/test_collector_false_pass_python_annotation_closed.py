@@ -114,6 +114,11 @@ def source(text: str) -> str:
     return HEAD + textwrap.dedent(text).replace("PAYLOAD", f'"{IMPORT}"') + HINTS
 
 
+def bare(text: str) -> str:
+    """A plant without the `get_type_hints` call of `source`: only `_evaluate` is the evaluator."""
+    return HEAD + textwrap.dedent(text).replace("PAYLOAD", f'"{IMPORT}"')
+
+
 SCOPES = {
     "store in a function with the written value of that scope": source(
         """
@@ -816,6 +821,24 @@ SCOPES = {
 
 
         inspect.signature(f, **{'eval_str': True})
+        """
+    ),
+    "ForwardRef._evaluate called on the class": bare(
+        """
+        import typing
+
+
+        r = typing.ForwardRef(str(PAYLOAD))
+        typing.ForwardRef._evaluate(r, {}, {}, recursive_guard=frozenset())
+        """
+    ),
+    "_evaluate called on an attribute of a holder": bare(
+        """
+        import typing
+
+
+        box = typing.NamedTuple('Box', [('ref', object)])(typing.ForwardRef(str(PAYLOAD)))
+        box.ref._evaluate({}, {}, recursive_guard=frozenset())
         """
     ),
 }

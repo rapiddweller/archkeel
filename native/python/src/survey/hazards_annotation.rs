@@ -31,7 +31,7 @@ pub(super) fn evaluation(call: &ExprCall, origins: &dyn Fn(&str) -> Vec<String>)
         attributes.push(Identifier::as_str(&node.attr));
         base = &node.value;
     }
-    if attributes.last() == Some(&"_evaluate") {
+    if attributes.first() == Some(&"_evaluate") {
         return Some("typing.ForwardRef._evaluate".to_owned());
     }
     let Expr::Name(root) = base else {
