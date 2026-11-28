@@ -168,7 +168,7 @@ Each JSON result starts with `command`, `outcome`, `status` and `exit_code`
 ([AD-735](architecture/decisions/ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md)).
 `outcome` is `verdict`, `collect_refused`, `command_refused`, `delivery_failed` or `completed`
 (`init`, `skill`; their `status` is `null`).
-In JSON, a refusal has the field `refusal` with `kind` and `message`, and no frame. In text, it starts with `REFUSED:`.
+In JSON, a refusal has the field `refusal` with `kind` and `message`. A command refusal has no frame. A collection refusal or a failed file write keeps its frame. In text, it starts with `REFUSED:`.
 The result of a run that gave a frame also has `refusals`, which lists each refusal in order;
 `refusal` is the first. A run that could not write a file keeps its frame.
 With `--baseline`, exit 2 means that every UNKNOWN is accepted, so only a verdict of the core gives it.
