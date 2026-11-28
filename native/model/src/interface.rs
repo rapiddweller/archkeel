@@ -327,6 +327,12 @@ pub fn publishes(
     })
 }
 
+/// The hops of the route that the collector could not prove (#2203), through each re-export under
+/// its public name: the held route may reach each of them.
+pub fn withheld_hops(import: &Import) -> &[String] {
+    &import.published.hops
+}
+
 /// The word of the cause that the collector states for the withheld route of an import
 /// (AD-1210), and the module or hop that it names, when it names one (#2089).
 pub fn withheld_cause(import: &Import) -> Option<(&'static str, Option<&str>)> {
