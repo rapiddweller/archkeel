@@ -34,7 +34,7 @@ pub(super) struct Pending {
     pub(super) erased: bool,
     pub(super) execution: bool,
     pub(super) no_name_route: bool,
-    /// The site of the target that a settled named candidate keeps as its execution doubt (AD-1510).
+    /// The site of the target that a settled named candidate keeps as its execution doubt (AD-1550).
     pub(super) home: Option<u32>,
 }
 
@@ -90,7 +90,7 @@ impl PendingPool {
     }
 
     /// The compiler resolved the written call of a named candidate to another module (AD-1185): the named doubt
-    /// is settled. `Some(runs)` says whether an argument of the call can still run code of the target (AD-1510).
+    /// is settled. `Some(runs)` says whether an argument of the call can still run code of the target (AD-1550).
     pub(super) fn elsewhere(
         &self,
         (builder, index): (&Builder, &Index<'_>),
@@ -152,7 +152,7 @@ pub(super) fn settle(
     builder.reach_used = filter.as_ref().is_some_and(|f| f.matched() > 0);
     let mut open = std::mem::take(&mut pool.items);
     // A settled named doubt leaves the named pairs. An argument that can run code of the target keeps its
-    // execution doubt as a candidate of its own (AD-1510).
+    // execution doubt as a candidate of its own (AD-1550).
     open.retain_mut(
         |p| match pool.elsewhere((builder, index), filter.as_ref(), p) {
             None => true,

@@ -79,7 +79,7 @@ impl<'f> Filter<'f> {
     /// The compiler resolved the method call at `(file, line, column)` to a function that another file than
     /// `target` holds, in a library unit of every configuration with the same callee (AD-1185). The named doubt
     /// of the call is then settled: `Some(runs)`. `runs` is the execution doubt: a type argument of the call is
-    /// open, is defined in `target`, or carries an impl from it, so code of `target` can still run (AD-1510).
+    /// open, is defined in `target`, or carries an impl from it, so code of `target` can still run (AD-1550).
     pub(crate) fn resolved_elsewhere(
         reach: Option<&Filter<'_>>,
         target: &str,

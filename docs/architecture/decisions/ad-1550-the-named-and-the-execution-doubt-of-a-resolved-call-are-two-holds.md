@@ -1,4 +1,4 @@
-# AD-1510: The named doubt and the execution doubt of a resolved call are two holds
+# AD-1550: The named doubt and the execution doubt of a resolved call are two holds
 
 Status: accepted. Amends AD-1185. Cut 1 of the native-zero design (`designs/NATIVE-ZERO-DESIGN.md`).
 This change can turn a held interface pair into PASS.

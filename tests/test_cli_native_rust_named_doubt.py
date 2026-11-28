@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-1510: the named doubt and the execution doubt of a method call are two holds.
+"""AD-1550: the named doubt and the execution doubt of a method call are two holds.
 
 The compiler resolves `.next()` to a function of another file. That settles the doubt that the
 call names the method `next` of `b`. An argument that can run code of `b` is a second doubt, and it

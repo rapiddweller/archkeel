@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// AD-1510: `resolved_elsewhere` separates the named doubt from the execution doubt of a call.
+// AD-1550: `resolved_elsewhere` separates the named doubt from the execution doubt of a call.
 
 use crate::type_reach_facts::Facts;
 use crate::type_reach_filter::Filter;
