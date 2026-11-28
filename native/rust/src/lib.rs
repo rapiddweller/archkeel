@@ -22,7 +22,6 @@ mod edges;
 mod edges_extracted;
 mod impl_edges;
 mod impl_globs;
-mod impl_pending;
 #[cfg(test)]
 mod known_derive_tests;
 mod macro_identity;

@@ -13,12 +13,12 @@ use std::collections::{BTreeSet, HashSet, VecDeque};
 
 use archkeel_facts::vocab::ResolutionDimension;
 
+pub(super) use super::pending::{Pending, PendingPool};
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::MethodCall;
 pub(super) use crate::impl_globs::Foreign;
 use crate::impl_globs::{build_ancestors, build_ingress, names_type, once_gap, visible, BitSet};
-pub(super) use crate::impl_pending::{Pending, PendingPool};
 use crate::modules::Index;
 use crate::site::Site;
 use crate::tree::Module;
