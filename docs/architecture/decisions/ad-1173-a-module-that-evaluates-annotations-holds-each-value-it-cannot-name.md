@@ -1,6 +1,6 @@
 # AD-1173 A module that evaluates annotations holds each value it cannot name
 
-**Status.** Accepted. Issue #2093. It extends [AD-1095](ad-1095-a-string-annotation-is-read-as-code.md) and [AD-1134](ad-1134-a-text-the-parser-cannot-read-and-a-run-time-annotation-are-sites.md).
+**Status.** Superseded by [AD-1176](ad-1176-a-call-that-evaluates-annotations-is-one-dynamic-code-site.md). Issue #2093. It extends [AD-1095](ad-1095-a-string-annotation-is-read-as-code.md) and [AD-1134](ad-1134-a-text-the-parser-cannot-read-and-a-run-time-annotation-are-sites.md).
 
 **Reason.** The verification run of #2063 found forms that put a string into an annotation without a string literal in an annotation position. CPython 3.12 loaded `app.lib` through `typing.get_type_hints` in each case and the verdict was PASS: a write to `__annotations__` inside an expression, a name that gets its string from a tuple unpack, `:=`, `+=`, a `for`, a condition, `str()`, `.replace` or `.decode`, `ForwardRef(name)`, `TypedDict(..)`, `NamedTuple(..)`, `type("K", (), {"__annotations__": ..})`, an alias of `__annotations__`, `d["a"]` and `C.s` as annotation. A rule for each form leaves the next form open. This decision adds one class rule.
 

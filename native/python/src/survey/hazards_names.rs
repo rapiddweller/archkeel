@@ -129,7 +129,9 @@ const IMPORTERS: &str = "\
     cProfile.runctx cProfile.Profile trace.Trace bdb.Bdb pdb.run pdb.runeval pdb.runctx pdb.Pdb \
     xml.sax.make_parser xml.sax._create_parser multiprocessing.spawn warnings._setoption \
     warnings._getcategory warnings._processoptions cProfile.main profile.main pdb.main \
-    pdb.set_trace pdb.post_mortem pdb.pm";
+    pdb.set_trace pdb.post_mortem pdb.pm \
+    typing.get_type_hints typing._eval_type typing.evaluate_forward_ref \
+    typing_extensions.get_type_hints typing_extensions.evaluate_forward_ref";
 
 /// Each hazard name that is not above-checked, as one qualified name.
 fn importers() -> impl Iterator<Item = &'static str> {

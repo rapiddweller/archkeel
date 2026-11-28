@@ -72,11 +72,13 @@ def test_a_string_annotation_that_imports_a_module_is_never_pass(
 
 
 @pytest.mark.parametrize("name", sorted(CONTROLS))
-def test_a_string_annotation_without_a_hazard_stays_pass(
+def test_a_string_annotation_without_a_hazard_holds_the_evaluation_site(
     tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str
 ) -> None:
     root = _root(tmp_path, CONTROLS[name])
     assert not _loads_lib(root), "CPython must leave app.lib unloaded: the control is clean"
     frame = _verdict(root, release_core, monkeypatch)["frame"]
 
-    assert frame["rules"]["NO-LIB"][1] == "PASS", frame
+    # AD-1176: the call that evaluates the annotations is one site; a declaration gives PASS.
+    expected = "UNKNOWN" if "get_type_hints" in str(CONTROLS[name]) else "PASS"
+    assert frame["rules"]["NO-LIB"][1] == expected, frame

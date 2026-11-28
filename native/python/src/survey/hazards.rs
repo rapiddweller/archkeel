@@ -95,7 +95,7 @@ pub(super) fn sites(
             None => walk.visit_stmt(stmt),
         }
     }
-    annotation::class::with(walk.found, tree)
+    walk.found
 }
 
 struct Walk<'r> {
@@ -241,6 +241,7 @@ impl Walk<'_> {
     }
 
     fn call<'a>(&mut self, expr: &'a Expr, call: &'a ruff_python_ast::ExprCall) {
+        annotation::site(self, expr, call);
         match self.proof.target(call) {
             Some(target) => {
                 self.push(LITERAL, &target, expr);
