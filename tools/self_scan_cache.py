@@ -12,10 +12,12 @@ reuses the result of main. The gate then judges the reused result as it judges a
 Run: `python tools/self_scan_cache.py key|save|hit ...`.
 
 - `key`: print the prefix of the cache key, `selfscan-v1-<static hash>-`. Every file of the
-  repository counts with its content (also a file not yet added to git and an ignored file that
-  a collector can read), except the formats in `NEUTRAL_SUFFIXES` (`.md` and images). A list of
-  what the collectors read would miss a kind of file, so the rule is the opposite: a changed,
-  new or deleted byte of any other file changes the key.
+  repository counts with its content (also a file not yet added to git), except the formats in
+  `NEUTRAL_SUFFIXES` (`.md` and images) and the names that the TypeScript collector reads as a
+  preload configuration. A list of what the collectors read would miss a kind of file, so the
+  rule is the opposite: a changed, new or deleted byte of any other file changes the key. A pull
+  request changes tracked files only, so an ignored file is no input of it: the key refuses (the
+  caller scans) when an ignored path is not build output.
 - `save --result R --dir D`: write `D/entry.json` and `D/result.json` for a result that is
   complete. The entry also lists the neutral documents that the scan read: the files that the
   core bound (`contract_files`) and every path that a contract cites. The tool refuses (exit 1,
@@ -44,12 +46,32 @@ VERSION = 1
 # package configurations, walk markers. A list of them would miss one, so every file counts except
 # these formats, which no collector reads as a source. A cited document is hashed by the entry.
 NEUTRAL_SUFFIXES = (".md", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf")
-# Folders that the collectors skip (a skip list, a `CACHEDIR.TAG` or a `pyvenv.cfg`) and that CI
-# fills after the key is made. Nothing counts in them, except a `.cargo` folder (Rust collector).
-SKIPPED_DIRS = {"target", "node_modules", ".venv", "__pycache__", ".mypy_cache", ".ruff_cache"}
-# These folders have no marker, so the Python walk enters them: only a script counts in them.
-OUTPUT_DIRS = {".pytest_cache", "test-artifacts"}
-SCRIPT_SUFFIXES = (".py", ".pyi", ".pyw", ".pyx", ".pxd", ".pxi")
+# A pull request changes tracked files only, so an ignored file is never one of its inputs. These
+# folders hold build or tool output; any other ignored path makes the key refuse (the caller scans).
+OUTPUT_DIRS = {
+    "target",
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    "test-artifacts",
+    "dist",
+    "build",
+    "_native",
+    ".digests",
+}
+# The names that the TypeScript collector reads as a preload configuration (`preloads.rs`), whatever
+# their last suffix is. A test compares this tuple with that file.
+PRELOAD_PREFIXES = (
+    ".env",
+    "vitest.config.",
+    "vite.config.",
+    "vitest.workspace.",
+    "jest.config.",
+    "mocha.config.",
+)
 # The tree is hashed file by file: a larger tree is not hashed, so the caller scans.
 MAX_FILES = 200_000
 MAX_DEPTH = 100
@@ -82,21 +104,10 @@ def tracked(root: Path) -> list[tuple[str, str]]:
     for path in others.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
         if path:
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
-    # A collector reads an ignored file too: it counts, and an ignored folder is walked. A build
-    # output folder counts only through a `.cargo` folder in it: the Rust collector reads that too.
     for path in ignored.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
-        if not path:
-            continue
-        for folder, _, names in os.walk(root / path) if path.endswith("/") else [(root, 0, [path])]:
-            for name in names:
-                found = str((Path(folder) / name).relative_to(root))
-                parts = found.split("/")
-                if is_static(found, "100644") and (
-                    ".cargo" in parts
-                    or not (SKIPPED_DIRS | OUTPUT_DIRS).intersection(parts)
-                    or (not SKIPPED_DIRS.intersection(parts) and name.endswith(SCRIPT_SUFFIXES))
-                ):
-                    rows.setdefault(found, "120000" if (root / found).is_symlink() else "100644")
+        parts = path.split("/")
+        if path and not OUTPUT_DIRS.intersection(parts) and not parts[0].endswith(".egg-info"):
+            raise Uncovered(f"an ignored path is not build output: {path}")
     if len(rows) > MAX_FILES:
         raise Uncovered("the tree is larger than the limit")
     if any(len(path.split("/")) > MAX_DEPTH for path in rows):
@@ -105,9 +116,10 @@ def tracked(root: Path) -> list[tuple[str, str]]:
 
 
 def is_static(path: str, mode: str) -> bool:
-    # `.env.*` is a preload configuration of the TypeScript collector, whatever its last suffix.
     name = path.rsplit("/", 1)[-1]
-    return mode == "120000" or name.startswith(".env") or not name.endswith(NEUTRAL_SUFFIXES)
+    return (
+        mode == "120000" or name.startswith(PRELOAD_PREFIXES) or not name.endswith(NEUTRAL_SUFFIXES)
+    )
 
 
 def content(root: Path, path: str, mode: str) -> str:

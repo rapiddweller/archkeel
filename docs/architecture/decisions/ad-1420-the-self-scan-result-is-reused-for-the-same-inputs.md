@@ -12,13 +12,13 @@ workflows gives the scan the same inputs as main, so it gives the same result.
 1. `tools/self_scan_cache.py` keys a saved result of the system scan by a hash of its inputs. It is a
    result cache. It is not a comparison and it is not a gate.
 2. Every file of the repository counts, by content, except the formats of `NEUTRAL_SUFFIXES` (`.md` and
-   images). This includes a file not yet added to git, a link with the content of its target, and an
-   ignored file that a collector can read. Build output folders count only through a `.cargo` folder in them; `test-artifacts` and
-   `.pytest_cache` (no marker) count through their scripts. A repository with a submodule is not cached. A `.env.*` file counts whatever its last suffix.
-   A list of what the collectors read failed in review again and again (outside scripts, native
-   extensions, walk markers, preload configurations), so the rule is the opposite. The entry also holds
-   the neutral documents that the scan read: the files that the core bound (`contract_files`) and every
-   path that a contract cites, also an absent path.
+   images). A name that the TypeScript collector reads as a preload configuration counts whatever its
+   suffix. This includes a file not yet added to git and a link with the content of its target. A list of
+   what the collectors read failed in review again and again, so the rule is the opposite. The entry also
+   holds the neutral documents that the scan read: the files that the core bound (`contract_files`) and
+   every path that a contract cites, also an absent path.
+   A pull request changes tracked files only, so an ignored file is no input of it. The key refuses when an
+   ignored path is not build output (`OUTPUT_DIRS`), and for a repository with a submodule. The caller then scans.
 3. Main saves the result after the gate is green. The tool refuses a result that does not show its
    inputs covered: a scanned file outside the static inputs, a part whose configuration is not static,
    a refusal, or a result without rules.

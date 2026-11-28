@@ -11,12 +11,16 @@ the core writes. A hit needs the same static inputs and the same documents. Any 
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).parents[1] / "tools"))
+from self_scan_cache import PRELOAD_PREFIXES  # noqa: E402
 
 TOOL = Path(__file__).parents[1] / "tools/self_scan_cache.py"
 FILES = {
@@ -243,22 +247,6 @@ def test_the_key_prefix_names_the_static_inputs_only(repo: Path) -> None:
     assert tool(repo, "key").stdout != before
 
 
-def test_an_ignored_source_file_that_a_collector_reads_is_a_miss(repo: Path) -> None:
-    (repo / ".gitignore").write_text("ignored/\nsrc/archkeel/skip.py\n")
-    git(repo, "add", "-A")
-    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
-    directory = saved(repo)
-    (repo / "ignored").mkdir()
-    (repo / "ignored/note.md").write_text("not source\n")
-    assert reuse(repo, directory).returncode == 0
-    (repo / "src/archkeel/skip.py").write_text("import archkeel.cli\n")
-    assert reuse(repo, directory).returncode == 1
-    (repo / "src/archkeel/skip.py").unlink()
-    assert reuse(repo, directory).returncode == 0
-    (repo / "ignored/hidden.py").write_text("x = 1\n")
-    assert reuse(repo, directory).returncode == 1
-
-
 def test_a_followed_configuration_link_counts_with_its_target(repo: Path) -> None:
     (repo / "docs/overrides.toml").write_text("[source]\n")
     (repo / "native/.cargo").mkdir()
@@ -271,41 +259,42 @@ def test_a_followed_configuration_link_counts_with_its_target(repo: Path) -> Non
     assert reuse(repo, directory).returncode == 1
 
 
-def test_build_output_that_the_collectors_skip_keeps_the_key(repo: Path) -> None:
-    (repo / ".gitignore").write_text("target/\ntest-artifacts/\n__pycache__/\n")
+def commit(repo: Path, text: str) -> None:
+    (repo / ".gitignore").write_text(text)
     git(repo, "add", "-A")
     git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
+
+
+def test_build_output_keeps_the_key_and_any_other_ignored_path_refuses(repo: Path) -> None:
+    commit(repo, "target/\ntest-artifacts/\n__pycache__/\nlocal/\n")
     before = tool(repo, "key").stdout
     for name in ("native/target/release/core", "test-artifacts/r.json", "src/__pycache__/a.pyc"):
         (repo / name).parent.mkdir(parents=True, exist_ok=True)
         (repo / name).write_text("built\n")
     assert tool(repo, "key").stdout == before
-
-
-def test_a_cargo_configuration_inside_build_output_counts(repo: Path) -> None:
-    (repo / ".gitignore").write_text("target/\n")
-    git(repo, "add", "-A")
-    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
     directory = saved(repo)
-    (repo / "target/release").mkdir(parents=True)
-    (repo / "target/release/core").write_text("built\n")
-    assert reuse(repo, directory).returncode == 0
-    (repo / "target/.cargo").mkdir()
-    (repo / "target/.cargo/config.toml").write_text("[source.crates-io]\nreplace-with = 'x'\n")
+    (repo / "local").mkdir()
+    (repo / "local/probe.py").write_text("import archkeel.cli\n")
+    assert tool(repo, "key").returncode == 1
     assert reuse(repo, directory).returncode == 1
 
 
-def test_a_script_inside_a_build_output_folder_counts_and_a_submodule_refuses(repo: Path) -> None:
-    (repo / ".gitignore").write_text("test-artifacts/\n")
-    git(repo, "add", "-A")
-    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
+@pytest.mark.parametrize(
+    "name", ["jest.config.md", "vite.config.png", "vitest.workspace.md", ".env.local.md"]
+)
+def test_a_preload_configuration_counts_whatever_its_suffix(repo: Path, name: str) -> None:
     directory = saved(repo)
-    (repo / "test-artifacts").mkdir()
-    (repo / "test-artifacts/result.json").write_text("{}\n")
-    assert reuse(repo, directory).returncode == 0
-    (repo / "test-artifacts/probe.py").write_text("import archkeel.cli\n")
+    (repo / name).write_text("module.exports = { setupFiles: ['missing-preload'] };\n")
     assert reuse(repo, directory).returncode == 1
-    (repo / "test-artifacts/probe.py").unlink()
+
+
+def test_the_preload_prefixes_are_those_of_the_typescript_collector() -> None:
+    source = (Path(__file__).parents[1] / "native/typescript/src/preloads.rs").read_text()
+    block = source[source.index("const CONFIGS") : source.index("matches!(")]
+    assert set(re.findall(r'"([a-z.]+\.)"', block)) <= set(PRELOAD_PREFIXES)
+
+
+def test_a_submodule_refuses(repo: Path) -> None:
     sub = repo.parent / "sub"
     sub.mkdir()
     git(sub, "init", "-q")
@@ -313,5 +302,4 @@ def test_a_script_inside_a_build_output_folder_counts_and_a_submodule_refuses(re
     git(sub, "add", "-A")
     git(sub, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "s")
     git(repo, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(sub), "vendor")
-    assert reuse(repo, directory).returncode == 1
     assert tool(repo, "key").returncode == 1
