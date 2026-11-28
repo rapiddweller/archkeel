@@ -44,17 +44,12 @@ VERSION = 1
 # package configurations, walk markers. A list of them would miss one, so every file counts except
 # these formats, which no collector reads as a source. A cited document is hashed by the entry.
 NEUTRAL_SUFFIXES = (".md", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf")
-# Build output and tool folders that the collectors skip; CI writes them after the key is made.
-SKIPPED_DIRS = {
-    "target",
-    "node_modules",
-    ".venv",
-    "__pycache__",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".pytest_cache",
-    "test-artifacts",
-}
+# Folders that the collectors skip (a skip list, a `CACHEDIR.TAG` or a `pyvenv.cfg`) and that CI
+# fills after the key is made. Nothing counts in them, except a `.cargo` folder (the Rust collector).
+SKIPPED_DIRS = {"target", "node_modules", ".venv", "__pycache__", ".mypy_cache", ".ruff_cache"}
+# These folders have no marker, so the Python walk enters them: only a script counts in them.
+OUTPUT_DIRS = {".pytest_cache", "test-artifacts"}
+SCRIPT_SUFFIXES = (".py", ".pyi", ".pyw", ".pyx", ".pxd", ".pxi")
 # The tree is hashed file by file: a larger tree is not hashed, so the caller scans.
 MAX_FILES = 200_000
 MAX_DEPTH = 100
@@ -82,6 +77,8 @@ def tracked(root: Path) -> list[tuple[str, str]]:
         meta, _, path = item.partition("\t")
         if path:
             rows[path] = meta.split()[0]
+        if rows.get(path) == "160000":
+            raise Uncovered(f"a submodule is not hashed: {path}")
     for path in others.stdout.decode("utf-8", errors="surrogateescape").split("\0"):
         if path:
             rows.setdefault(path, "120000" if (root / path).is_symlink() else "100644")
@@ -95,7 +92,9 @@ def tracked(root: Path) -> list[tuple[str, str]]:
                 found = str((Path(folder) / name).relative_to(root))
                 parts = found.split("/")
                 if is_static(found, "100644") and (
-                    ".cargo" in parts or not SKIPPED_DIRS.intersection(parts)
+                    ".cargo" in parts
+                    or not (SKIPPED_DIRS | OUTPUT_DIRS).intersection(parts)
+                    or (not SKIPPED_DIRS.intersection(parts) and name.endswith(SCRIPT_SUFFIXES))
                 ):
                     rows.setdefault(found, "120000" if (root / found).is_symlink() else "100644")
     if len(rows) > MAX_FILES:

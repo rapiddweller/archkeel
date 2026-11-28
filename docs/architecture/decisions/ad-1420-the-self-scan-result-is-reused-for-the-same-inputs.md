@@ -13,7 +13,8 @@ workflows gives the scan the same inputs as main, so it gives the same result.
    result cache. It is not a comparison and it is not a gate.
 2. Every file of the repository counts, by content, except the formats of `NEUTRAL_SUFFIXES` (`.md` and
    images). This includes a file not yet added to git, a link with the content of its target, and an
-   ignored file that a collector can read. Build output folders count only through a `.cargo` folder in them. A `.env.*` file counts whatever its last suffix.
+   ignored file that a collector can read. Build output folders count only through a `.cargo` folder in them; `test-artifacts` and
+   `.pytest_cache` (no marker) count through their scripts. A repository with a submodule is not cached. A `.env.*` file counts whatever its last suffix.
    A list of what the collectors read failed in review again and again (outside scripts, native
    extensions, walk markers, preload configurations), so the rule is the opposite. The entry also holds
    the neutral documents that the scan read: the files that the core bound (`contract_files`) and every

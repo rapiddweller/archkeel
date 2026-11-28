@@ -293,3 +293,25 @@ def test_a_cargo_configuration_inside_build_output_counts(repo: Path) -> None:
     (repo / "target/.cargo").mkdir()
     (repo / "target/.cargo/config.toml").write_text("[source.crates-io]\nreplace-with = 'x'\n")
     assert reuse(repo, directory).returncode == 1
+
+
+def test_a_script_inside_a_build_output_folder_counts_and_a_submodule_refuses(repo: Path) -> None:
+    (repo / ".gitignore").write_text("test-artifacts/\n")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
+    directory = saved(repo)
+    (repo / "test-artifacts").mkdir()
+    (repo / "test-artifacts/result.json").write_text("{}\n")
+    assert reuse(repo, directory).returncode == 0
+    (repo / "test-artifacts/probe.py").write_text("import archkeel.cli\n")
+    assert reuse(repo, directory).returncode == 1
+    (repo / "test-artifacts/probe.py").unlink()
+    sub = repo.parent / "sub"
+    sub.mkdir()
+    git(sub, "init", "-q")
+    (sub / "x.py").write_text("x = 1\n")
+    git(sub, "add", "-A")
+    git(sub, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "s")
+    git(repo, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(sub), "vendor")
+    assert reuse(repo, directory).returncode == 1
+    assert tool(repo, "key").returncode == 1
