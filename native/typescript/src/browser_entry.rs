@@ -148,7 +148,7 @@ struct References {
 fn references_of(parsers: &mut Parsers, rel: &str, data: &[u8]) -> References {
     let lower = rel.to_ascii_lowercase();
     if lower.ends_with(".html") || lower.ends_with(".htm") {
-        return page_references(rel, data);
+        return page_references(parsers, rel, data);
     }
     let Some(suffix) = classify_file(rel) else {
         return nothing();
@@ -168,10 +168,14 @@ fn references_of(parsers: &mut Parsers, rel: &str, data: &[u8]) -> References {
             incomplete: Some(format!("the browser file {rel} cannot be parsed")),
         };
     };
-    let mut found = References {
-        found: Vec::new(),
-        incomplete: None,
-    };
+    // A tree with an error node can hide a reference: the file is not read in full.
+    if tree.root_node().has_error() {
+        return References {
+            found: Vec::new(),
+            incomplete: Some(format!("the browser file {rel} cannot be parsed in full")),
+        };
+    }
+    let mut found = nothing();
     walk(tree.root_node(), data, rel, &mut found);
     found
 }
@@ -311,6 +315,10 @@ fn member_call(
                 None => note(out, rel, line, "a service worker path that is no literal"),
             }
         }
+        "addModule" => match path_argument(arguments, data) {
+            Some(path) => out.found.push(path),
+            None => note(out, rel, line, "a worklet module path that is no literal"),
+        },
         "write" | "writeln" if text.trim() == format!("document.{name}") => {
             note(out, rel, line, "a document.write that can load a script");
         }
@@ -323,32 +331,50 @@ fn note(out: &mut References, rel: &str, line: usize, what: &str) {
         .get_or_insert_with(|| format!("{rel}:{line} has {what}"));
 }
 
-/// The paths that a page loads: `src` of each `<script>` and `<iframe>` and `href` of each
-/// modulepreload link. A `<base>` and an import map change what a path means, so they are not read.
-fn page_references(rel: &str, data: &[u8]) -> References {
+/// What the elements of a page load and run: `src` of `<script>`, `<iframe>`, `<frame>` and `<embed>`,
+/// `data` of `<object>`, `href` of a modulepreload link, and the code of an inline script, of an `on…`
+/// attribute and of a `javascript:` address, which names more files the same way a script does. A
+/// `<base>`, an import map and an `srcdoc` change or hide what a path means, so they are not read.
+fn page_references(parsers: &mut Parsers, rel: &str, data: &[u8]) -> References {
     let text = String::from_utf8_lossy(data);
-    let lower = text.to_ascii_lowercase();
     let mut out = nothing();
     let mut at = 0;
-    while let Some(start) = lower[at..].find('<').map(|offset| offset + at) {
-        let tag_end = lower[start..]
-            .find('>')
-            .map_or(lower.len(), |offset| offset + start);
-        let tag = &text[start + 1..tag_end];
-        at = tag_end.max(start + 1);
+    while let Some(open) = text[at..].find('<').map(|offset| offset + at) {
+        // `<` starts a tag only before a letter, `/` or `!`; elsewhere it is text.
+        let next = text[open + 1..].chars().next();
+        if !next.is_some_and(|c| c.is_ascii_alphabetic() || matches!(c, '/' | '!')) {
+            at = open + 1;
+            continue;
+        }
+        let (tag, end) = tag_at(&text, open);
+        at = end;
         let name: String = tag
             .chars()
             .take_while(|c| !c.is_whitespace() && *c != '/')
             .collect::<String>()
             .to_ascii_lowercase();
-        let attributes = attributes(&tag[name.len().min(tag.len())..]);
+        let attributes = attributes(tag.get(name.len()..).unwrap_or_default());
         let attribute = |wanted: &str| {
             attributes
                 .iter()
                 .find(|(key, _)| key == wanted)
                 .map(|(_, value)| value.clone())
         };
-        let line = text[..start].matches('\n').count().saturating_add(1);
+        let line = text[..open].matches('\n').count().saturating_add(1);
+        let place = format!("{rel}:{line}");
+        for (key, value) in &attributes {
+            let address = value.trim_start().to_ascii_lowercase();
+            if key.starts_with("on") && !value.trim().is_empty() {
+                code(parsers, &place, value.as_bytes(), &mut out);
+            } else if address.starts_with("javascript:") {
+                code(
+                    parsers,
+                    &place,
+                    value.trim_start().as_bytes().get(11..).unwrap_or_default(),
+                    &mut out,
+                );
+            }
+        }
         match name.as_str() {
             "base" => note(
                 &mut out,
@@ -356,18 +382,40 @@ fn page_references(rel: &str, data: &[u8]) -> References {
                 line,
                 "a <base> element that changes every path",
             ),
-            "script"
-                if attribute("type").is_some_and(|kind| kind.eq_ignore_ascii_case("importmap")) =>
-            {
+            "script" | "style" => {
+                let closing = format!("</{name}");
+                let body_end = text[end..]
+                    .to_ascii_lowercase()
+                    .find(&closing)
+                    .map_or(text.len(), |offset| offset + end);
+                at = body_end;
+                let kind = attribute("type").map(|kind| kind.to_ascii_lowercase());
+                if name == "style" {
+                    continue;
+                }
+                if kind.as_deref() == Some("importmap") {
+                    note(
+                        &mut out,
+                        rel,
+                        line,
+                        "an import map that maps names to paths",
+                    );
+                } else if let Some(src) = attribute("src") {
+                    out.found.push(src);
+                } else if runs_as_code(kind.as_deref()) {
+                    code(parsers, &place, text[end..body_end].as_bytes(), &mut out);
+                }
+            }
+            "iframe" if attribute("srcdoc").is_some() => {
                 note(
                     &mut out,
                     rel,
                     line,
-                    "an import map that maps names to paths",
+                    "an iframe whose page is an srcdoc text",
                 );
             }
-            "script" => out.found.extend(attribute("src")),
-            "iframe" => out.found.extend(attribute("src")),
+            "iframe" | "frame" | "embed" => out.found.extend(attribute("src")),
+            "object" => out.found.extend(attribute("data")),
             "link"
                 if attribute("rel")
                     .is_some_and(|rel| rel.eq_ignore_ascii_case("modulepreload")) =>
@@ -378,6 +426,66 @@ fn page_references(rel: &str, data: &[u8]) -> References {
         }
     }
     out
+}
+
+/// The tag that starts at `open` (without `<` and `>`) and the place after it. A quoted attribute
+/// value can hold `>`, and a comment holds no tag.
+fn tag_at(text: &str, open: usize) -> (&str, usize) {
+    if text[open..].starts_with("<!--") {
+        let end = text[open..]
+            .find("-->")
+            .map_or(text.len(), |offset| open + offset + 3);
+        return ("", end);
+    }
+    let mut quote: Option<char> = None;
+    let mut previous = ' ';
+    for (offset, c) in text[open + 1..].char_indices() {
+        match quote {
+            Some(q) if c == q => quote = None,
+            Some(_) => {}
+            None if matches!(c, '"' | '\'') && previous == '=' => quote = Some(c),
+            None if c == '>' => {
+                let end = open + 1 + offset;
+                return (&text[open + 1..end], end + 1);
+            }
+            None => {}
+        }
+        if !c.is_whitespace() {
+            previous = c;
+        }
+    }
+    (&text[open + 1..], text.len())
+}
+
+/// A script type that runs as JavaScript (as in `script_outside_page`).
+fn runs_as_code(kind: Option<&str>) -> bool {
+    matches!(
+        kind,
+        None | Some(
+            "" | "module"
+                | "text/javascript"
+                | "application/javascript"
+                | "text/ecmascript"
+                | "application/ecmascript"
+                | "text/jsx"
+                | "text/babel"
+        )
+    )
+}
+
+/// The references of a piece of code inside a page: an inline script, a handler, an address.
+fn code(parsers: &mut Parsers, place: &str, bytes: &[u8], out: &mut References) {
+    let Some((tree, _)) = parsers.parse(false, bytes) else {
+        out.incomplete
+            .get_or_insert_with(|| format!("{place} has code that cannot be parsed"));
+        return;
+    };
+    if tree.root_node().has_error() {
+        out.incomplete
+            .get_or_insert_with(|| format!("{place} has code that cannot be parsed in full"));
+        return;
+    }
+    walk(tree.root_node(), bytes, place, out);
 }
 
 /// The `name=value` pairs of a tag: a name is lower case, a value may be quoted or bare.

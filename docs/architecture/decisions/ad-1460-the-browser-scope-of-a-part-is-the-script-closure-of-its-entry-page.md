@@ -16,14 +16,18 @@ folder name can hide a file that ships.
 1. A TypeScript part states `browser_entry` (an HTML page) and optionally `browser_assets` (folders, default the folder
    of the page). The core derives the browser files: the page, its `<script src>` and modulepreload links, and from each
    loaded script the `import`, `export … from`, `import("…")`, `importScripts("…")`, `new Worker("…")` and
-   `serviceWorker.register("…")` with a literal path, and `<iframe src>`, transitively. A path that starts with `/` is searched in each assets folder in order; a relative path
+   `serviceWorker.register("…")` and `addModule("…")` with a literal path, transitively. A page names files with
+   `<script src>`, `<iframe src>`, `<frame src>`, `<embed src>`, `<object data>` and modulepreload links, and it runs code
+   that names more files the same way: an inline script, an `on…` attribute and a `javascript:` address. A tag is read
+   as a browser reads it (a quoted attribute can hold `>`; `<` before a space is text; a comment and a `<style>` hold no
+   tag). A path that starts with `/` is searched in each assets folder in order; a relative path
    is resolved against the URL of the file that names it. A URL outside the repository is code outside the repository,
    which the premise covers.
 2. The guard reads the loaded files outside the scan roots, and nothing else. A loaded file stays in whatever its place.
    Node preloads are not read for such a part: they run in no browser.
 3. Nothing narrows silently. A missing entry or assets folder refuses the run. A reference that cannot be followed (a
-   path in no folder, a bare name, a path that is no literal, a `<base>` or an import map, a script element that code
-   creates, a `document.write`, a file that cannot be read or parsed, more than 2,000 files) is the cause of the run: no global has a native proof, and the gap names the file and the reference.
+   path in no folder, a bare name, a path that is no literal, a `<base>` or an import map, an `srcdoc` page, a script element that code
+   creates, a `document.write`, code with a syntax error node (the tree can hide a reference), a file that cannot be read or parsed, more than 2,000 files) is the cause of the run: no global has a native proof, and the gap names the file and the reference.
 4. A part without `browser_entry` behaves as before.
 
 The collection request carries `resolver.browser` (`entry`, `assets`) only when it is stated, like `bundler`. The frame
@@ -43,7 +47,11 @@ schema is regenerated.
 - `import("/a" + x)`, a path in no folder, `import "lodash"` and a worker path that is no literal each hold every global.
 - `document.createElement("script")`, `document.write` and a service worker path that is no literal hold every global
   (a loaded file can load any file by them); a literal service worker path is followed; `createElement("div")` is no script, and a tag that is no literal is not examined (see "Not done").
-- A `<base>` element and an import map hold every global; an `<iframe src>` is followed.
+- A `<base>` element, an import map and an `srcdoc` page hold every global. `<iframe src>`, `<frame>`, `<embed>`, `<object data>`
+  and an `addModule` path are followed.
+- Code in the page is read like a script (Codex, round 1): `<script type=module>import '/w.js'</script>`, an `onclick`
+  attribute, a `javascript:` address. Quoted `>` in an attribute (`<script data-note=">" src=/w.js>`), `x < y <script …>`,
+  a comment and a `<style>` before the script do not hide it. Code that does not parse in full holds every global.
 - A missing entry refuses; assets without an entry, a path with `..` and a non-TypeScript part are invalid.
 
 ## Not done

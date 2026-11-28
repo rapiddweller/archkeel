@@ -13,6 +13,7 @@ use archkeel_snapshot::test_tree::Tree;
 
 use crate::collect::collect;
 use crate::collect::tests::{provenance, request};
+use crate::syntax::Parsers;
 
 const A: &str =
     "window.open();\nwindow.close();\nwindow.print();\nexport const m = Math.max(1, 2);\n";
@@ -154,7 +155,7 @@ fn the_page_reads_script_iframe_and_modulepreload_and_not_data_attributes() {
     let page = "<script data-src='/no.js'></script><script SRC=/yes.js defer></script>\
                 <link rel=modulepreload href='/pre.js'><link rel=stylesheet href='/c.css'>\
                 <iframe src=/frame.html></iframe><script>inline()</script>";
-    let found = super::page_references("p.html", page.as_bytes());
+    let found = super::page_references(&mut Parsers::new(), "p.html", page.as_bytes());
     assert_eq!(found.found, ["/yes.js", "/pre.js", "/frame.html"]);
     assert!(found.incomplete.is_none());
 }
@@ -165,7 +166,7 @@ fn a_base_element_and_an_import_map_hold_every_global_because_they_change_what_a
         "<base href=/other/><script src=/boot.js></script>",
         "<script type=importmap>{\"imports\":{}}</script><script src=/boot.js></script>",
     ] {
-        let found = super::page_references("p.html", page.as_bytes());
+        let found = super::page_references(&mut Parsers::new(), "p.html", page.as_bytes());
         assert!(found.incomplete.is_some(), "{page}");
     }
 }
@@ -215,4 +216,83 @@ fn code_that_makes_a_script_or_registers_a_worker_is_followed_or_holds_every_glo
             .all(|title| !title.contains("no native proof")),
         "{titles:?}"
     );
+}
+
+/// The titles that hold a global when the page of the entry is `page` and `boot.js` is not loaded.
+fn page_withheld(page: &str, outside: &[(&str, &str)]) -> Vec<String> {
+    let mut files = vec![
+        ("tsconfig.json", "{}"),
+        ("src/a.ts", A),
+        ("web/index.html", page),
+    ];
+    files.extend_from_slice(outside);
+    let tree = Tree::new(&files);
+    let mut request = request(&tree, true);
+    request.resolver.browser = Some(BrowserSettings {
+        entry: "web/index.html".to_owned(),
+        assets: vec!["web".to_owned()],
+    });
+    collect(&request, provenance())
+        .gaps
+        .iter()
+        .filter(|gap| gap.title.starts_with("Script global "))
+        .map(|gap| gap.title.clone())
+        .collect()
+}
+
+#[test]
+fn code_inside_the_page_names_files_like_a_script_does() {
+    // Each form loads `/w.js`, which replaces `open`. A form that the closure did not read would
+    // drop the file and its gap: a false native proof.
+    for page in [
+        "<script type=module>import '/w.js';</script>",
+        "<script>import('/w.js');</script>",
+        "<button onclick=\"import('/w.js')\">go</button>",
+        "<a href=\"javascript:import('/w.js')\">go</a>",
+        "<script data-note=\">\" src=\"/w.js\"></script>",
+        "<script data-note='>' src=/w.js></script>",
+        "x < y <script src=/w.js></script>",
+        "<!-- <script src=/no.js></script> --><script src=/w.js></script>",
+        "<style>a > b {}</style><script src=/w.js></script>",
+        "<iframe src=/w.js></iframe>",
+        "<frame src=/w.js>",
+        "<embed src=/w.js>",
+        "<object data=/w.js></object>",
+        "<script>CSS.paintWorklet.addModule('/w.js');</script>",
+    ] {
+        let titles = page_withheld(page, &[("web/w.js", WRITES_OPEN)]);
+        assert!(holds(&titles, "open"), "{page}: {titles:?}");
+    }
+}
+
+#[test]
+fn a_page_form_that_cannot_be_followed_holds_every_global() {
+    for (page, cause) in [
+        (
+            "<iframe srcdoc='<script src=/w.js></script>'></iframe>",
+            "srcdoc",
+        ),
+        (
+            "<script>import(path);</script>",
+            "dynamic import with no literal path",
+        ),
+        (
+            "<button onclick=\"import(x)\">go</button>",
+            "dynamic import with no literal path",
+        ),
+        (
+            "<script>CSS.paintWorklet.addModule(path);</script>",
+            "worklet module path",
+        ),
+        ("<script>import(</script>", "cannot be parsed"),
+    ] {
+        let titles = page_withheld(page, &[]);
+        let held = titles
+            .iter()
+            .find(|title| title.starts_with("Script global Math has no native proof"));
+        assert!(
+            held.is_some_and(|title| title.contains(cause)),
+            "{page}: {titles:?}"
+        );
+    }
 }
