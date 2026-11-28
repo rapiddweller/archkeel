@@ -12,12 +12,13 @@ reuses the result of main. The gate then judges the reused result as it judges a
 Run: `python tools/self_scan_cache.py key|save|hit ...`.
 
 - `key`: print the prefix of the cache key, `selfscan-v1-<static hash>-`. Every file of the
-  repository counts with its content (also a file not yet added to git), except the formats in
-  `NEUTRAL_SUFFIXES` below `docs/` (`.md` and images) and the names that the TypeScript collector
-  reads as a preload configuration. A list of what the collectors read would miss a kind of file, so the
-  rule is the opposite: a changed, new or deleted byte of any other file changes the key. A pull
-  request changes tracked files only, so an ignored file is no input of it: the key refuses (the
-  caller scans) when an ignored path is not build output.
+  repository counts with its content (also a file not yet added to git), except documents
+  below `docs/` in the formats of `NEUTRAL_SUFFIXES` (`.md` and images) and the names that the
+  TypeScript collector reads as a preload configuration. A list of what the collectors read
+  would miss a kind of file, so the rule is the opposite: a changed, new or deleted byte of
+  any other file changes the key. A pull request changes tracked files only, so an ignored
+  file is no input of it: the key refuses (the caller scans) when an ignored path is not build
+  output.
 - `save --result R --dir D`: write `D/entry.json` and `D/result.json` for a result that is
   complete. The entry also lists the neutral documents that the scan read: the files that the
   core bound (`contract_files`) and every path that a contract cites. The tool refuses (exit 1,
