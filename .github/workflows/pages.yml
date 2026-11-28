@@ -85,6 +85,16 @@ jobs:
           restore-keys: |
             rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
 
+      # AD-1350: the self runs read the workspace of native/ with the compiler driver. CI saves that
+      # work for main; this job only reads it, so its other runs do not fill the cache.
+      - name: Restore the compiler facts work of main
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/archkeel/rustc-facts
+          key: rustc-facts-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml', 'tools/rustc-facts/**', '!tools/rustc-facts/target/**') }}
+          restore-keys: |
+            rustc-facts-main-${{ runner.os }}-
+
       - name: Build the core
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}

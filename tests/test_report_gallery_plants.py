@@ -77,7 +77,7 @@ def test_a_plant_run_applies_its_edit_to_a_copy_and_the_fixture_stays_clean(tmp_
     script.write_text(PLANT_PROBE)
     run = next(run for run in _plant_runs() if run["name"] == "M-plant-cycle")
     row = report_gallery.build_run([sys.executable, str(script)], run, tmp_path)
-    seen = json.loads((tmp_path / "M-plant-cycle" / "report.json").read_text())
+    seen = json.loads((tmp_path / "M-plant-cycle" / "report.html").read_text())
     assert "error" not in row
     assert run["plant"]["line"] in seen["text"]
     assert seen["root"] == "<repo>/fixtures/M-review-workflow"

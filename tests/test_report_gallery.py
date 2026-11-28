@@ -259,9 +259,18 @@ def test_a_self_run_without_a_result_gets_a_grey_badge_and_fails_the_build() -> 
 def test_a_written_report_does_not_name_the_path_of_the_runner(tmp_path: Path) -> None:
     code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
     assert code == 0
-    for path in [out / "self" / "core.json", out / "served-a" / "report.json"]:
+    for path in [out / "self" / "core.html", out / "served-a" / "report.html"]:
         text = path.read_text()
         assert str(report_gallery.ROOT) not in text and "<repo>" in text
+
+
+def test_the_json_report_is_the_frame_of_the_one_run_that_wrote_the_page(tmp_path: Path) -> None:
+    """AD-1350: one core run per project gives the page and the envelope; no second scan."""
+    code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
+    assert code == 0
+    frame = {"rules": {"A": ["x", "PASS"], "B": ["x", "FAIL"]}, "scope": "complete"}
+    written = (out / "served-a" / "report.json").read_text()
+    assert written == json.dumps(frame, separators=(",", ":"))
 
 
 def test_the_system_page_and_badge_sit_in_self_and_link_their_neighbours(tmp_path: Path) -> None:
@@ -318,7 +327,7 @@ def test_a_fixture_with_resolver_inputs_runs_in_a_copy_that_holds_node_modules(
     cli = [sys.executable, str(script)]
     run = {"name": "L-nest-realworld", "root": "L-nest-realworld", "command": "report"}
     row = report_gallery.build_run(cli, run, tmp_path)
-    seen = json.loads((tmp_path / "L-nest-realworld" / "report.json").read_text())
+    seen = json.loads((tmp_path / "L-nest-realworld" / "report.html").read_text())
     assert "error" not in row
     assert seen["modules"] is True
     # The source stays as it is, and the report names the fixture, not the temporary copy.
@@ -331,7 +340,7 @@ def test_a_fixture_without_resolver_inputs_runs_in_place(tmp_path: Path) -> None
     script.write_text(PROBE)
     run = {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report"}
     report_gallery.build_run([sys.executable, str(script)], run, tmp_path)
-    seen = json.loads((tmp_path / "M-review-workflow" / "report.json").read_text())
+    seen = json.loads((tmp_path / "M-review-workflow" / "report.html").read_text())
     assert seen["root"] == "fixtures/M-review-workflow" and seen["modules"] is False
 
 
