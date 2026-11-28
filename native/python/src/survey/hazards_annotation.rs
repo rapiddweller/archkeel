@@ -19,55 +19,40 @@ mod forms;
 
 pub(in crate::survey::hazards) use forms::literal;
 
-/// The calls that evaluate annotations only when `eval_str` asks for it.
-const BY_KEYWORD: [&str; 3] = [
-    "inspect.signature",
-    "inspect.get_annotations",
-    "annotationlib.get_annotations",
-];
-
-/// The qualified name of a call that evaluates the string annotations of an object (AD-1176,
-/// #2156): `inspect.signature(f, eval_str=True)`, `inspect.get_annotations(.., eval_str=True)`.
-/// `typing.get_type_hints` and the evaluation of a `ForwardRef` are sites by name already
-/// (`hazards_names.rs`). The call is dynamic code: the survey does not follow the strings
-/// that reach it, a contract declares the site and its premise. `origins` are the import
-/// bindings of a plain name.
-fn evaluation(call: &ExprCall, origins: &dyn Fn(&str) -> Vec<String>) -> Option<String> {
-    // The private method that evaluates a `ForwardRef`; no other class of the library has it.
-    if matches!(&*call.func, Expr::Attribute(node) if node.attr.as_str() == "_evaluate") {
-        return Some("typing.ForwardRef._evaluate".to_owned());
-    }
+/// The qualified name of a call that evaluates string annotations only when asked (AD-1176):
+/// `inspect.signature(f, eval_str=..)` with a keyword `eval_str` that is no literal `False`, or with
+/// a `**` expansion that can hold it, and the private `_evaluate` method of a `ForwardRef`. The
+/// other evaluators are hazard names (`hazards_names.rs`). `origins` are the import bindings of
+/// a plain name.
+pub(super) fn evaluation(call: &ExprCall, origins: &dyn Fn(&str) -> Vec<String>) -> Option<String> {
     let mut attributes = Vec::new();
     let mut base = &*call.func;
     while let Expr::Attribute(node) = base {
         attributes.push(Identifier::as_str(&node.attr));
         base = &node.value;
     }
+    if attributes.last() == Some(&"_evaluate") {
+        return Some("typing.ForwardRef._evaluate".to_owned());
+    }
     let Expr::Name(root) = base else {
         return None;
     };
-    let asked = call.arguments.keywords.iter().any(|k| {
-        let named = k.arg.as_ref().is_some_and(|arg| arg.as_str() == "eval_str");
-        named && !matches!(&k.value, Expr::BooleanLiteral(b) if !b.value)
+    let asked = call.arguments.keywords.iter().any(|k| match &k.arg {
+        Some(arg) => {
+            arg.as_str() == "eval_str" && !matches!(&k.value, Expr::BooleanLiteral(b) if !b.value)
+        }
+        None => true,
     });
     attributes.reverse();
-    let origins = origins(root.id.as_str());
     let qualified = |origin: &String| {
         let parts = std::iter::once(origin.as_str()).chain(attributes.iter().copied());
         parts.collect::<Vec<_>>().join(".")
     };
-    let found = origins
+    let found = origins(root.id.as_str())
         .iter()
         .map(qualified)
-        .find(|name| BY_KEYWORD.contains(&name.as_str()));
+        .find(|n| n == "inspect.signature");
     found.filter(|_| asked)
-}
-
-/// Push the site of a call that evaluates annotations.
-pub(super) fn site(walk: &mut super::Walk, expr: &Expr, call: &ExprCall) {
-    if let Some(name) = evaluation(call, &|id| walk.origins(id)) {
-        walk.push(super::DYNAMIC, &name, expr);
-    }
 }
 
 /// What `expr` evaluates as code: a string in an annotation, the first argument of `ForwardRef`,

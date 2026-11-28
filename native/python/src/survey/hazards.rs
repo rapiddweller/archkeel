@@ -241,7 +241,10 @@ impl Walk<'_> {
     }
 
     fn call<'a>(&mut self, expr: &'a Expr, call: &'a ruff_python_ast::ExprCall) {
-        annotation::site(self, expr, call);
+        let evaluates = annotation::evaluation(call, &|id| self.origins(id));
+        evaluates
+            .iter()
+            .for_each(|name| self.push(DYNAMIC, name, expr));
         match self.proof.target(call) {
             Some(target) => {
                 self.push(LITERAL, &target, expr);

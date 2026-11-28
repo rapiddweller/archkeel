@@ -56,14 +56,16 @@ const UNPICKLE: [&str; 11] = [
     "cloudpickle.loads",
 ];
 
-/// The calls that evaluate the string annotations of an object.
-const EVALUATES: [&str; 8] = [
+/// The names that evaluate the string annotations of an object (AD-1176).
+const EVALUATES: [&str; 10] = [
+    "inspect.signature",
+    "typing.ForwardRef._evaluate",
     "typing.get_type_hints",
     "typing._eval_type",
     "typing.evaluate_forward_ref",
     "typing_extensions.get_type_hints",
     "typing_extensions.evaluate_forward_ref",
-    "inspect.signature",
+    "inspect.Signature.from_callable",
     "inspect.get_annotations",
     "annotationlib.get_annotations",
 ];

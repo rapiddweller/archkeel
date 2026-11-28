@@ -50,9 +50,10 @@ CASES = {
     "from-typing": Case(page("from typing import Any\nx: Any = None\n"), FAIL, True),
     "typing-attribute": Case(page("import typing\nx: typing.Any = None\n"), FAIL, True),
     "typing-alias": Case(page("import typing as t\nx: t.Any = None\n"), FAIL, True),
-    "star-from-typing": Case(page("from typing import *\nx: Any = None\n"), FAIL, True),
+    # AD-1176: `from typing import *` brings `get_type_hints`, an evaluator: one site.
+    "star-from-typing": Case(page("from typing import *\nx: Any = None\n"), UNKNOWN, True),
     "star-and-import": Case(
-        page("from typing import *\nfrom typing import Any\nx: Any = None\n"), FAIL, True
+        page("from typing import *\nfrom typing import Any\nx: Any = None\n"), UNKNOWN, True
     ),
     "typing-import-under-if": Case(
         page("if True:\n    import typing\nx: typing.Any = None\n"), FAIL, True

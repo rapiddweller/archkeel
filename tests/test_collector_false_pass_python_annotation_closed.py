@@ -763,6 +763,61 @@ SCOPES = {
             x: os.EX_OK
         """
     ),
+    "evaluation keyword through a ** expansion": source(
+        """
+        import inspect
+
+
+        class K:
+            x: str(PAYLOAD)
+
+
+        inspect.get_annotations(K, **{'eval_str': True})
+        """
+    ),
+    "evaluator reached through an alias": source(
+        """
+        import inspect
+
+
+        class K:
+            x: str(PAYLOAD)
+
+
+        read = inspect.get_annotations
+        read(K, eval_str=True)
+        """
+    ),
+    "Signature.from_callable evaluates": source(
+        """
+        import inspect
+
+
+        class K:
+            x: str(PAYLOAD)
+
+
+        def f(a: str(PAYLOAD)): ...
+
+
+        inspect.Signature.from_callable(f, eval_str=True)
+        """
+    ),
+    "signature through a ** expansion": source(
+        """
+        import inspect
+
+
+        class K:
+            x: str(PAYLOAD)
+
+
+        def f(a: str(PAYLOAD)): ...
+
+
+        inspect.signature(f, **{'eval_str': True})
+        """
+    ),
 }
 
 PLANTS.update(SCOPES)

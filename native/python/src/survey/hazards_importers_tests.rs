@@ -192,6 +192,10 @@ fn a_call_that_evaluates_annotations_is_a_site_and_the_annotations_are_none() {
         "import inspect\ninspect.signature(f, eval_str=True)\n",
         "import inspect as i\ni.get_annotations(f, eval_str=flag)\n",
         "import annotationlib\nannotationlib.get_annotations(f, eval_str=True)\n",
+        "import inspect\ninspect.get_annotations(f, **{'eval_str': True})\n",
+        "import inspect\nread = inspect.get_annotations\nread(f, eval_str=True)\n",
+        "import inspect\ninspect.Signature.from_callable(f, eval_str=True)\n",
+        "from inspect import signature\nsignature(f, eval_str=True)\n",
     ] {
         assert!(!details(source).is_empty(), "{source}");
     }
@@ -200,9 +204,6 @@ fn a_call_that_evaluates_annotations_is_a_site_and_the_annotations_are_none() {
 #[test]
 fn a_call_without_evaluation_and_a_module_without_an_evaluator_are_no_site() {
     for source in [
-        "import inspect\ninspect.signature(f)\n",
-        "import inspect\ninspect.signature(f, eval_str=False)\n",
-        "import inspect\ninspect.get_annotations(f)\n",
         "def signature(f, eval_str=True): ...\nsignature(f, eval_str=True)\n",
         "class K:\n    x: 'int'\n    y: int\n",
         "s = 'int'\nclass K:\n    x: s\n",

@@ -414,7 +414,7 @@ def test_getattr_call_is_proven_or_left_unknown(
         ("Any = object\nx: Any = None\n", "UNKNOWN"),
         ("from typing import Any\nclass Any: pass\nx: Any = None\n", "UNKNOWN"),
         ("from typing import Any\ndef f():\n    Any = 1\nx: Any = None\n", "UNKNOWN"),
-        ("from typing import *\nx: Any = None\n", "FAIL"),
+        ("from typing import *\nx: Any = None\n", "UNKNOWN"),
         ("if TYPE_CHECKING:\n    from typing import Any\nx: Any = None\n", "FAIL"),
     ],
 )

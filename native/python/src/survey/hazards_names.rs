@@ -131,7 +131,9 @@ const IMPORTERS: &str = "\
     warnings._getcategory warnings._processoptions cProfile.main profile.main pdb.main \
     pdb.set_trace pdb.post_mortem pdb.pm \
     typing.get_type_hints typing._eval_type typing.evaluate_forward_ref \
-    typing_extensions.get_type_hints typing_extensions.evaluate_forward_ref";
+    typing_extensions.get_type_hints typing_extensions.evaluate_forward_ref \
+    inspect.Signature.from_callable inspect.get_annotations \
+    annotationlib.get_annotations";
 
 /// Each hazard name that is not above-checked, as one qualified name.
 fn importers() -> impl Iterator<Item = &'static str> {
